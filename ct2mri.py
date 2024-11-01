@@ -11,7 +11,7 @@ import numpy as np
 import nibabel as nib
 
 
-def grid_in_plane(origin, normal, plane_size):
+def grid_in_plane(origin, normal, npoints, plane_size):
     """
     Generates a grid of points in a plane defined by an origin and a normal vector.
     Note that the grid is centered at the origin and the points are spaced the same in both in-plane directions.
@@ -51,7 +51,7 @@ def grid_in_plane(origin, normal, plane_size):
     #linespace generates sequence of of evenly spaced numbers of range  
     # creates planesize amount of evenly spaced values from -half_size to half_size
     # creates a 1d array of evenly spaced points
-    lin_space = np.linspace(-half_size, half_size, int(plane_size))
+    lin_space = np.linspace(-half_size, half_size, npoints)
 
     # cretea grid in plane using u and v as axes? 
     # .meshgrid produces coordinate matrices from coordinate vectors
@@ -65,7 +65,7 @@ def grid_in_plane(origin, normal, plane_size):
     points = origin + grid_x[..., None] * u + grid_y[..., None] * v
 
     #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
-    return points.reshape(plane_size * plane_size, 3)
+    return points.reshape(len(lin_space) * len(lin_space), 3)
     # return points
 
 
@@ -86,6 +86,8 @@ def interpolate_image(xyz, data):
     ijk = nib.affines.apply_affine(np.linalg.inv(ct_affine), xyz)
     # round everything to integers for floating point number, indexing array doesnt take floating point
     ijk = np.round(ijk).astype(int)
+
+    # Check points outside box
         
     # Sample data at the nearest indices
     # ijk[:, 0] grabs first column, ijk[:, 1] grabs second column, ijk[:, 2] grabs third column, 
@@ -107,41 +109,59 @@ def interpolate_image(xyz, data):
 ct_img = nib.load('data/labels.nii.gz')
 ct_data = ct_img.get_fdata()
 ct_affine = ct_img.affine
+print(ct_affine)
 
 size = ct_data.shape
 
 # Define a plane given its normal and a point on it
-origin = np.array([0, 0, 0])  
-normal = np.array([0, 0, 1])
+origin = np.array([226, 229, 117])  
+normal = np.array([0.9216606896036594, -0.08280403290031359, 0.3790581292819755])
 
 # Define a grid of points that live in the plane
-xyz = grid_in_plane(origin, normal, size[0])
+xyz = grid_in_plane(origin, normal, 50, size[0])
 # print("Sample xyz coordinates:", xyz[:10])
-
 
 # Interpolate the image data at the grid points
 slice_data = interpolate_image(xyz, ct_data)
 
 # Plot the interpolated image. For a given origin and normal, the image should look like a slice with the same origin and normal in Paraview.
-plt.figure()
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+
+# # Extract x, y, z coordinates from the grid points
+# x = xyz[:, 0]
+# y = xyz[:, 1]
+# z = xyz[:, 2]
+
+# # Create a 3D scatter plot
+# ax.scatter(x, y, z, c='r', marker='o')
+
+# ax.set_xlabel('X (mm)')
+# ax.set_ylabel('Y (mm)')
+# ax.set_zlabel('Z (mm)')
+
+# plt.show()
+
 # origin = 'lower' flips the y axis
 # plt.imshow(slice_data, cmap='grey', origin = 'lower', extent=[-half_size, half_size, 0, size[0]])
 
-num_ticks = 5
-ticks = np.linspace(0, size[0] - 1, num_ticks)  # Pixel positions for tick marks
-half_size = (size[0] / 2)  # Physical half-size in your units (e.g., mm)
-tick_labels_x = np.linspace(-half_size, half_size, num_ticks)  # X-axis labels from -half_size to +half_size
-tick_labels_y = np.linspace(0, size[0], num_ticks)  # Y-axis labels from 0 to plane_size
-
-# Apply tick labels to x and y axes
-plt.xticks(ticks=ticks, labels=np.round(tick_labels_x, 2))
-plt.yticks(ticks=ticks, labels=np.round(tick_labels_y, 2))
-
-plt.xlabel('X (mm)')
-plt.ylabel('Y (mm)')
 
 
-plt.show()
+# num_ticks = 5
+# ticks = np.linspace(0, size[0] - 1, num_ticks)  # Pixel positions for tick marks
+# half_size = (size[0] / 2)  # Physical half-size in your units (e.g., mm)
+# tick_labels_x = np.linspace(-half_size, half_size, num_ticks)  # X-axis labels from -half_size to +half_size
+# tick_labels_y = np.linspace(0, size[0], num_ticks)  # Y-axis labels from 0 to plane_size
+
+# # Apply tick labels to x and y axes
+# plt.xticks(ticks=ticks, labels=np.round(tick_labels_x, 2))
+# plt.yticks(ticks=ticks, labels=np.round(tick_labels_y, 2))
+
+# plt.xlabel('X (mm)')
+# plt.ylabel('Y (mm)')
+
+
+# plt.show()
 
 
 
