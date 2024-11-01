@@ -25,7 +25,25 @@ def grid_in_plane(origin, normal, plane_size):
     Returns:
         numpy.ndarray: A 2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
     """
-    pass
+    normal = normal / np.linalg.norm(normal)
+    
+    # Create two orthogonal vectors in the plane using the normal vector
+    if not np.allclose(normal, [1, 0, 0]):
+        u = np.cross(normal, [1, 0, 0])
+    else:
+        u = np.cross(normal, [0, 1, 0])
+    
+    u = u / np.linalg.norm(u)
+    v = np.cross(normal, u)
+    
+    # Create grid points within the plane
+    half_size = plane_size / 2
+    lin_space = np.linspace(-half_size, half_size, int(plane_size))
+    grid_x, grid_y = np.meshgrid(lin_space, lin_space)
+    
+    # Compute 3D coordinates for each point on the plane
+    points = origin + grid_x[..., None] * u + grid_y[..., None] * v
+    return points.reshape(-1, 3)
 
 
 def interpolate_image(xyz, data):
@@ -39,16 +57,15 @@ def interpolate_image(xyz, data):
     Returns:
         numpy.ndarray: The interpolated image data with integer values.
     """
-    # Convert float xyz to integer ijk
-    ijk = ...
-
-    # Interpolate the image
-    interpolated_data = ...
-
-    # Make sure the interpolated data returns integer values
-    interpolated_data = ...
-
-    return interpolated_data
+    ijk = nib.affines.apply_affine(np.linalg.inv(ct_affine), xyz)
+    ijk = np.round(ijk).astype(int)
+        
+    # Sample data at the nearest indices
+    interpolated_data = data[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
+    print("Transformed ijk indices:", ijk[:10])
+    
+    # Reshape to a 2D grid (assuming square grid as above)
+    return interpolated_data.reshape(int(np.sqrt(len(xyz))), int(np.sqrt(len(xyz))))
 
 
 # Load CT image
@@ -64,13 +81,15 @@ normal = np.array([0, 0, 1])
 
 # Define a grid of points that live in the plane
 xyz = grid_in_plane(origin, normal, size[0])
+print("Sample xyz coordinates:", xyz[:10])
+
 
 # Interpolate the image data at the grid points
 slice_data = interpolate_image(xyz, ct_data)
 
 # Plot the interpolated image. For a given origin and normal, the image should look like a slice with the same origin and normal in Paraview.
 plt.figure()
-plt.imshow(slice_data, cmap='gray')
+plt.imshow(slice_data, cmap='grey')
 plt.show()
 
 
