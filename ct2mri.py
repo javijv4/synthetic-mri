@@ -9,6 +9,8 @@ Created on 2024/10/30 16:22:52
 from matplotlib import pyplot as plt
 import numpy as np
 import nibabel as nib
+from sklearn.decomposition import PCA
+
 
 
 def grid_in_plane(origin, normal, npoints, plane_size):
@@ -88,6 +90,9 @@ def interpolate_image(xyz, data):
     ijk = np.round(ijk).astype(int)
 
     # Check points outside box
+    ijk[:, 0] = np.clip(ijk[:, 0], 0, data.shape[0] - 1)
+    ijk[:, 1] = np.clip(ijk[:, 1], 0, data.shape[1] - 1)
+    ijk[:, 2] = np.clip(ijk[:, 2], 0, data.shape[2] - 1)
         
     # Sample data at the nearest indices
     # ijk[:, 0] grabs first column, ijk[:, 1] grabs second column, ijk[:, 2] grabs third column, 
@@ -104,12 +109,111 @@ def interpolate_image(xyz, data):
     # return slice_data
     return interpolated_data.reshape(N,N)
 
+def probe_CT_label_image (xyz, data, ct_affine):
+    ijk = nib.affines.apply_affine(np.linalg.inv(ct_affine), xyz)
+    ijk = np.round(ijk).astype(int)
+
+    # Clip indices to stay within bounds of the data array
+    ijk[0] = np.clip(ijk[0], 0, data.shape[0] - 1)
+    ijk[1] = np.clip(ijk[1], 0, data.shape[1] - 1)
+    ijk[2] = np.clip(ijk[2], 0, data.shape[2] - 1)
+    return int(data[ijk[0], ijk[1], ijk[2]])
+
+def save_Nifti(data, affine, file_name):
+    nifti_img = nib.Nifti1Image(data, affine)
+    nib.save(nifti_img, file_name)
+
+def calculate_centroid(label_data, label_value, affine):
+    # Calculates the centroid of a specific label in the segmented data.
+
+    # Args:
+    #     label_data (numpy.ndarray): The 3D label data where each structure has a unique integer label.
+    #     label_value (int): The label value representing the structure (e.g., LV, RV, Aorta).
+    #     affine (numpy.ndarray): The affine matrix for converting voxel coordinates to real-world coordinates.
+
+    # Returns:
+    #     numpy.ndarray: The (x, y, z) coordinates of the centroid in real-world space.
+    # Get coordinates of all voxels with the given label
+    coords = np.argwhere(label_data == label_value)
+    if coords.size == 0:
+        return None
+
+    # Calculate centroid in voxel coordinates
+    centroid_voxel = np.mean(coords, axis=0)
+
+    # Convert to real-world coordinates using the affine matrix
+    centroid_real = nib.affines.apply_affine(affine, centroid_voxel)
+    return centroid_real
+
+def calculate_lv_long_axis(label_data, lv_label, affine):
+    """
+    Calculates the long axis of the LV using PCA.
+    """
+    # takes an array and returns the indices where the specified condition is True
+    coords = np.argwhere(label_data == lv_label)
+    if coords.size == 0:
+        return None
+
+    # create instance of PCA class with 3 principal components of xyz
+    pca = PCA(n_components=3)
+    pca.fit(coords)
+    
+    # The first principal component (i.e., the first vector produced by PCA) points in the direction of the maximum variance in the dataset. For the LV region:
+    # The first principal component corresponds to the longest dimension of the LV shape.
+    # This is why you can use it to estimate the LV long axis.
+    long_axis_voxel = pca.components_[0]
+
+    #     explained_variance = pca.explained_variance_ratio_
+    # print("Explained Variance Ratio:", explained_variance)
+    #  convert the LV long axis vector from voxel space to real-world coordinates using the affine transformation matrix.
+
+    # affine[:3, :3] extracts the top-left 3x3 submatrix of the affine matrix.
+# This submatrix represents the rotation and scaling but not the translation.
+    long_axis_real = affine[:3, :3] @ long_axis_voxel
+    return long_axis_real
+
+def calculate_spatial_information(label_data, affine):
+    LV_LABEL = 1
+    RV_LABEL = 2
+    AORTA_LABEL = 3
+
+    lv_centroid = calculate_centroid(label_data, LV_LABEL, affine)
+    rv_centroid = calculate_centroid(label_data, RV_LABEL, affine)
+    aorta_centroid = calculate_centroid(label_data, AORTA_LABEL, affine)
+    lv_long_axis = calculate_lv_long_axis(label_data, LV_LABEL, affine)
+
+    spatial_info = {
+        "LV Centroid": lv_centroid,
+        "RV Centroid": rv_centroid,
+        "LV Long Axis": lv_long_axis,
+        "Aorta Centroid": aorta_centroid
+    }
+
+    return spatial_info
+
+
 
 # Load CT image
 ct_img = nib.load('data/labels.nii.gz')
 ct_data = ct_img.get_fdata()
 ct_affine = ct_img.affine
 print(ct_affine)
+
+spatial_info = calculate_spatial_information(ct_data, ct_affine)
+
+print("\nSpatial Information:")
+for key, value in spatial_info.items():
+    print(f"{key}: {value}")
+
+lv_centroid = spatial_info["LV Centroid"]
+lv_long_axis = spatial_info["LV Long Axis"]
+
+if lv_centroid is not None and lv_long_axis is not None:
+    print("\nGenerating grid and interpolating slice...")
+
+    # Define a plane using LV centroid and LV long axis
+    origin = lv_centroid
+    normal = lv_long_axis
 
 size = ct_data.shape
 
