@@ -205,3 +205,9 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 # This submatrix represents the rotation and scaling but not the translation.
     long_axis_real = affine[:3, :3] @ long_axis_voxel
     return long_axis_real
+
+
+"""  PLOTTING FUNCTIONS  """
+def plot_slice_2d(slice_data):
+    # TODO
+    pass
