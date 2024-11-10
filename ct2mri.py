@@ -29,7 +29,7 @@ for key, value in spatial_info.items():
 lv_centroid = spatial_info["LV Centroid"]
 lv_long_axis = spatial_info["LV Long Axis"]
 
-# Generating short-axis slices
+# Generating short-axis slices # TODO make this for multiple slices along the long axis
 origin = lv_centroid
 normal = lv_long_axis
 
