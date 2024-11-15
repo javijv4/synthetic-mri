@@ -53,6 +53,23 @@ plt.show()
 plane_size = size[0]
 spacing = 1.0
 
+# Generate data arrays
+# SA
+sa_data = ... # where SA data is a 3D array of shape (plane_size, plane_size, number of slices)
+
+
+# all LA
+la_2CH_data = ... # where LA data is a 3D array of shape (plane_size, plane_size, 1)
+la_3CH_data = ... # where LA data is a 3D array of shape (plane_size, plane_size, 1)
+la_4CH_data = ... # where LA data is a 3D array of shape (plane_size, plane_size, 1)
+
+
+# Find the affine for each view given the normal and center of the slice
+sa_affine = ... # 4x4 affine matrix
+la_2CH_affine = ... # 4x4 affine matrix
+la_3CH_affine = ... # 4x4 affine matrix
+la_4CH_affine = ... # 4x4 affine matrix
+
 print("Generating short axis view:\n")
 fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size, spacing)
 
