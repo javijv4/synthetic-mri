@@ -212,14 +212,6 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 """  PLOTTING FUNCTIONS  """
 
 def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0):
-    """
-        label_data: 3D labeled data.
-        affine: affine matrix for converting coordinates.
-        lv_centroid: (x, y, z) coordinates of the LV centroid.
-        lv_long_axis : (x, y, z) vector representing the LV long axis.
-        plane_size: size of the plane in pixels.
-        spacing: spacing between points in the grid
-    """
     if lv_centroid is None or lv_long_axis is None:
         print("Invalid LV centroid or long axis.")
         return
