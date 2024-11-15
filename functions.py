@@ -211,29 +211,26 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 
 """  PLOTTING FUNCTIONS  """
 
-def plot_slice_2d(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0):
+def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0):
     """
-    Generates a short-axis view, interpolates the data, and plots the resulting 2D slice.
-    
-    Args:
-        label_data (numpy.ndarray): The 3D labeled data.
-        affine (numpy.ndarray): The affine matrix for converting coordinates.
-        lv_centroid (numpy.ndarray): The (x, y, z) coordinates of the LV centroid.
-        lv_long_axis (numpy.ndarray): The (x, y, z) vector representing the LV long axis.
-        plane_size (float): The size of the plane in pixels.
-        spacing (float): The spacing between points in the grid (in real-world units).
+        label_data: 3D labeled data.
+        affine: affine matrix for converting coordinates.
+        lv_centroid: (x, y, z) coordinates of the LV centroid.
+        lv_long_axis : (x, y, z) vector representing the LV long axis.
+        plane_size: size of the plane in pixels.
+        spacing: spacing between points in the grid
     """
     if lv_centroid is None or lv_long_axis is None:
         print("Invalid LV centroid or long axis.")
         return
     
-    # Step 1: Generate a grid in the short-axis plane
     xyz = grid_in_plane(lv_centroid, lv_long_axis, spacing, plane_size)
     
-    # Step 2: Interpolate the 3D data onto the 2D plane
     slice_data = interpolate_image(xyz, label_data, affine)
+
+    #  transformed_coords = np.dot(affine[:3, :3], xyz.T).T + affine[:3, 3]
+    # return slice_data, transformed_coords
     
-    # Step 3: Plot the 2D slice
     plt.figure(figsize=(6, 6))
     plt.imshow(slice_data, cmap='gray', origin='lower')
     plt.title("Short-Axis View")
@@ -241,48 +238,36 @@ def plot_slice_2d(label_data, affine, lv_centroid, lv_long_axis, plane_size=100,
     plt.show()
 
 def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0):
-    """
-    Generates a 2-chamber view, interpolates the data, and plots the resulting 2D slice.
 
-    Args:
-        label_data (numpy.ndarray): The 3D labeled data.
-        affine (numpy.ndarray): The affine matrix for converting coordinates.
-        lv_centroid (numpy.ndarray): The (x, y, z) coordinates of the LV centroid.
-        rv_centroid (numpy.ndarray): The (x, y, z) coordinates of the RV centroid.
-        plane_size (float): The size of the plane in pixels.
-        spacing (float): The spacing between points in the grid (in real-world units).
-    """
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
         return
     
-    # Step 1: Calculate the vector connecting LV and RV centroids
     v = rv_centroid - lv_centroid
-    v = v / np.linalg.norm(v)  # Normalize the vector
+    v = v / np.linalg.norm(v) 
 
-    # Step 2: Use LV centroid as the origin and vector v as the normal
     origin = lv_centroid
     normal = v
 
-    # Step 3: Generate a grid in the plane using the origin and normal
     xyz = grid_in_plane(origin, normal, spacing, plane_size)
     
-    # Step 4: Interpolate the 3D data onto the 2D plane
     slice_data = interpolate_image(xyz, label_data, affine)
     
-    # Step 5: Plot the 2D slice
     plt.figure(figsize=(6, 6))
     plt.imshow(slice_data, cmap='gray', origin='lower')
     plt.title("2-Chamber View")
     plt.axis('off')
     plt.show()
 
+    #  from chatgpt? returning affined data
+    transformed_coords = np.dot(affine[:3, :3], xyz.T).T + affine[:3, 3]
+    return slice_data, transformed_coords
+
+
 
 def main_2chamber_view(seg_file, plane_size=100, spacing=1.0):
-    # Step 1: Load the NIFTI file
     label_data, affine, _ = readFromNIFTI(seg_file)
     
-    # Step 2: Calculate spatial information
     spatial_info = calculate_spatial_information(label_data, affine)
     
     lv_centroid = spatial_info["LV Centroid"]
@@ -295,49 +280,33 @@ def main_2chamber_view(seg_file, plane_size=100, spacing=1.0):
     print("LV Centroid:", lv_centroid)
     print("RV Centroid:", rv_centroid)
 
-    # Step 3: Plot the 2-chamber view
     plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size, spacing)
+
+    
 
 
 def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=100, spacing=1.0):
-    """
-    Generates a 4-chamber view, interpolates the data, and plots the resulting 2D slice.
-
-    Args:
-        label_data (numpy.ndarray): The 3D labeled data.
-        affine (numpy.ndarray): The affine matrix for converting coordinates.
-        lv_centroid (numpy.ndarray): The (x, y, z) coordinates of the LV centroid.
-        rv_centroid (numpy.ndarray): The (x, y, z) coordinates of the RV centroid.
-        plane_size (float): The size of the plane in pixels.
-        spacing (float): The spacing between points in the grid (in real-world units).
-    """
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
         return
     
-    # Step 1: Calculate the vector connecting LV and RV centroids (v)
     v = rv_centroid - lv_centroid
-    v = v / np.linalg.norm(v)  # Normalize the vector
+    v = v / np.linalg.norm(v) 
 
-    # Step 2: Calculate a vector x that is orthogonal to v
     # Choose a reference vector (like [0, 0, 1]) to compute the cross-product
     # ref_vector = np.array([0, 0, 1]) if not np.allclose(v, [0, 0, 1]) else np.array([0, 1, 0])
     # x = np.cross(v, ref_vector)
 
     x = np.cross(lv_long_axis, v)
-    x = x / np.linalg.norm(x)  # Normalize the vector
+    x = x / np.linalg.norm(x)
 
-    # Step 3: Use LV centroid as the origin and vector x as the normal for the 4-chamber plane
     origin = lv_centroid
     normal = x
 
-    # Step 4: Generate a grid in the plane using the origin and normal
     xyz = grid_in_plane(origin, normal, spacing, plane_size)
     
-    # Step 5: Interpolate the 3D data onto the 2D plane
     slice_data = interpolate_image(xyz, label_data, affine)
     
-    # Step 6: Plot the 2D slice
     plt.figure(figsize=(6, 6))
     plt.imshow(slice_data, cmap='gray', origin='lower')
     plt.title("4-Chamber View")
@@ -345,10 +314,8 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
     plt.show()
 
 def main_4chamber_view(seg_file, plane_size=100, spacing=1.0):
-    # Step 1: Load the NIFTI file
     label_data, affine, _ = readFromNIFTI(seg_file)
     
-    # Step 2: Calculate spatial information
     spatial_info = calculate_spatial_information(label_data, affine)
     
     lv_centroid = spatial_info["LV Centroid"]
@@ -364,7 +331,6 @@ def main_4chamber_view(seg_file, plane_size=100, spacing=1.0):
     print("LV Long Axis:", lv_long_axis)
 
 
-    # Step 3: Plot the 4-chamber view
     plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing)
 
 
@@ -379,23 +345,18 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_s
     v = lv_centroid - aorta_centroid
     v = v / np.linalg.norm(v) 
 
-    # Step 2: Calculate a normal vector that is orthogonal to v
     # Use a reference vector (like [0, 0, 1]) for cross-product calculation
     # https://liu.diva-portal.org/smash/get/diva2:1709829/FULLTEXT01.pdf
     ref_vector = np.array([0, 0, 1]) if not np.allclose(v, [0, 0, 1]) else np.array([0, 1, 0])
     normal = np.cross(v, ref_vector)
     normal = normal / np.linalg.norm(normal)
 
-    # Step 3: Use LV centroid as the origin and normal as the plane normal
     origin = lv_centroid
 
-    # Step 4: Generate a grid in the plane using the origin and normal
     xyz = grid_in_plane(origin, normal, spacing, plane_size)
     
-    # Step 5: Interpolate the 3D data onto the 2D plane
     slice_data = interpolate_image(xyz, label_data, affine)
     
-    # Step 6: Plot the 2D slice
     plt.figure(figsize=(6, 6))
     plt.imshow(slice_data, cmap='gray', origin='lower')
     plt.title("3-Chamber View")
@@ -415,9 +376,26 @@ def main_3chamber_view(seg_file, plane_size=100, spacing=1.0):
         print("Could not compute LV or Aorta centroids.")
         return
 
-    sourceFile = open('demo.txt', 'w')
-    print("LV Centroid:", lv_centroid, file = sourceFile)
+    # sourceFile = open('demo.txt', 'w')
+    # print("LV Centroid:", lv_centroid, file = sourceFile)
+    print("LV Centroid:", lv_centroid)
     print("Aorta Centroid:", aorta_centroid)
 
     plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_size, spacing)
+
+
+    
+def apply_misalignment(origin, normal, misalignment_level=0.0):
+
+    if misalignment_level > 0:
+        # The np.random.randn(3) generates a random vector with three components, each drawn from a normal distribution with a mean of 0 and a standard deviation of 1.
+        translation = np.random.randn(3) * misalignment_level
+        origin = origin + translation
+
+        # Apply a small random rotation to the normal vector
+        rotation = np.random.randn(3) * misalignment_level
+        normal = normal + rotation
+        normal = normal / np.linalg.norm(normal) 
+    
+    return origin, normal
 

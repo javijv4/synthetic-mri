@@ -50,14 +50,19 @@ plt.title("Short-Axis View")
 plt.axis('off')
 plt.show()
 
+plane_size = size[0]
+spacing = 1.0
+
+print("Generating short axis view:\n")
+fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size, spacing)
 
 print("Generating 2-chamber view:\n")
-fn.plot_2_chamber_view(ct_data, ct_affine, lv_centroid, rv_centroid, plane_size=size[0], spacing=1.0)
+fn.plot_2_chamber_view(ct_data, ct_affine, lv_centroid, rv_centroid, plane_size, spacing)
 
 print("Generating 3-chamber view:\n")
-fn.plot_3_chamber_view(ct_data, ct_affine, lv_centroid, aorta_centroid, plane_size=size[0], spacing=1.0)
+fn.plot_3_chamber_view(ct_data, ct_affine, lv_centroid, aorta_centroid, plane_size, spacing)
 
 print("Generating 4-chamber view:\n")
-fn.plot_4_chamber_view(ct_data, ct_affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=size[0], spacing=1.0)
+fn.plot_4_chamber_view(ct_data, ct_affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing)
 
 
