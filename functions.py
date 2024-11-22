@@ -4,6 +4,8 @@ import nibabel as nib
 from sklearn.decomposition import PCA
 import monai.transforms as mt
 import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+
 
 
 
@@ -48,7 +50,7 @@ def calculate_spatial_information(label_data, affine):
     return spatial_info
 
 
-def grid_in_plane(origin, normal, npoints, plane_size):
+def grid_in_plane(origin, normal, spacing, plane_size):
     # TODO: instead of the number of points, the function should receive the spacing between points
     """
     Generates a grid of points in a plane defined by an origin and a normal vector.
@@ -89,6 +91,7 @@ def grid_in_plane(origin, normal, npoints, plane_size):
     #linespace generates sequence of of evenly spaced numbers of range  
     # creates planesize amount of evenly spaced values from -half_size to half_size
     # creates a 1d array of evenly spaced points
+    npoints = int(np.ceil(plane_size / spacing))  # Calculate number of points to cover plane_size
     lin_space = np.linspace(-half_size, half_size, npoints)
 
     # cretea grid in plane using u and v as axes? 
@@ -211,10 +214,10 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 
 """  PLOTTING FUNCTIONS  """
 
-def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0):
+def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, plotOn = True):
     if lv_centroid is None or lv_long_axis is None:
         print("Invalid LV centroid or long axis.")
-        return
+        return None
     
     xyz = grid_in_plane(lv_centroid, lv_long_axis, spacing, plane_size)
     
@@ -222,18 +225,21 @@ def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=10
 
     #  transformed_coords = np.dot(affine[:3, :3], xyz.T).T + affine[:3, 3]
     # return slice_data, transformed_coords
-    
-    plt.figure(figsize=(6, 6))
-    plt.imshow(slice_data, cmap='gray', origin='lower')
-    plt.title("Short-Axis View")
-    plt.axis('off')
-    plt.show()
+    transformed_coords = [1,1,1]
+    if plotOn: 
+        plt.figure(figsize=(6, 6))
+        plt.imshow(slice_data, cmap='gray', origin='lower')
+        plt.title("Short-Axis View")
+        plt.axis('off')
+        plt.show()
 
-def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0):
+    return slice_data, transformed_coords
+
+def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0, plotOn = True):
 
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
-        return
+        return None
     
     v = rv_centroid - lv_centroid
     v = v / np.linalg.norm(v) 
@@ -245,19 +251,20 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
     
     slice_data = interpolate_image(xyz, label_data, affine)
     
-    plt.figure(figsize=(6, 6))
-    plt.imshow(slice_data, cmap='gray', origin='lower')
-    plt.title("2-Chamber View")
-    plt.axis('off')
-    plt.show()
+    if plotOn:
+        plt.figure(figsize=(6, 6))
+        plt.imshow(slice_data, cmap='gray', origin='lower')
+        plt.title("2-Chamber View")
+        plt.axis('off')
+        plt.show()
 
     #  from chatgpt? returning affined data
-    transformed_coords = np.dot(affine[:3, :3], xyz.T).T + affine[:3, 3]
+    transformed_coords = [1,1,1]
     return slice_data, transformed_coords
 
 
 
-def main_2chamber_view(seg_file, plane_size=100, spacing=1.0):
+def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
     
     spatial_info = calculate_spatial_information(label_data, affine)
@@ -267,20 +274,20 @@ def main_2chamber_view(seg_file, plane_size=100, spacing=1.0):
     
     if lv_centroid is None or rv_centroid is None:
         print("Could not compute LV or RV centroids.")
-        return
+        return None
 
     print("LV Centroid:", lv_centroid)
     print("RV Centroid:", rv_centroid)
 
-    plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size, spacing)
+    return plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size, spacing, plotOn)
 
     
 
 
-def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=100, spacing=1.0):
+def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=100, spacing=1.0, plotOn = True):
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
-        return
+        return None, None
     
     v = rv_centroid - lv_centroid
     v = v / np.linalg.norm(v) 
@@ -299,13 +306,17 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
     
     slice_data = interpolate_image(xyz, label_data, affine)
     
-    plt.figure(figsize=(6, 6))
-    plt.imshow(slice_data, cmap='gray', origin='lower')
-    plt.title("4-Chamber View")
-    plt.axis('off')
-    plt.show()
+    if plotOn: 
+        plt.figure(figsize=(6, 6))
+        plt.imshow(slice_data, cmap='gray', origin='lower')
+        plt.title("4-Chamber View")
+        plt.axis('off')
+        plt.show()
 
-def main_4chamber_view(seg_file, plane_size=100, spacing=1.0):
+    transformed_coords = [1,1,1]
+    return slice_data, transformed_coords
+
+def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
     
     spatial_info = calculate_spatial_information(label_data, affine)
@@ -316,24 +327,24 @@ def main_4chamber_view(seg_file, plane_size=100, spacing=1.0):
 
     if lv_centroid is None or rv_centroid is None:
         print("Could not compute LV or RV centroids.")
-        return
+        return None
 
     print("LV Centroid:", lv_centroid)
     print("RV Centroid:", rv_centroid)
     print("LV Long Axis:", lv_long_axis)
 
 
-    plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing)
+    return plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing, plotOn)
 
 
-def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_size=100, spacing=1.0):
+def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_size=100, spacing=1.0, plotOn = True):
     """
     Three chamber view. Have v be a vector between the aorta centroid and the LV centroid, get the normal of V, and the center be the LV centroid
     """
     if lv_centroid is None or aorta_centroid is None:
         print("Invalid LV or Aorta centroid.")
-        return
-    
+        return None, None
+     
     v = lv_centroid - aorta_centroid
     v = v / np.linalg.norm(v) 
 
@@ -349,14 +360,18 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_s
     
     slice_data = interpolate_image(xyz, label_data, affine)
     
-    plt.figure(figsize=(6, 6))
-    plt.imshow(slice_data, cmap='gray', origin='lower')
-    plt.title("3-Chamber View")
-    plt.axis('off')
-    plt.show()
+    if plotOn: 
+        plt.figure(figsize=(6, 6))
+        plt.imshow(slice_data, cmap='gray', origin='lower')
+        plt.title("3-Chamber View")
+        plt.axis('off')
+        plt.show()
+
+    transformed_coords = [1,1,1]
+    return slice_data, transformed_coords
 
 
-def main_3chamber_view(seg_file, plane_size=100, spacing=1.0):
+def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
     
     spatial_info = calculate_spatial_information(label_data, affine)
@@ -366,14 +381,14 @@ def main_3chamber_view(seg_file, plane_size=100, spacing=1.0):
     
     if lv_centroid is None or aorta_centroid is None:
         print("Could not compute LV or Aorta centroids.")
-        return
+        return None
 
     # sourceFile = open('demo.txt', 'w')
     # print("LV Centroid:", lv_centroid, file = sourceFile)
     print("LV Centroid:", lv_centroid)
     print("Aorta Centroid:", aorta_centroid)
 
-    plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_size, spacing)
+    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_size, spacing, plotOn)
 
 
     
@@ -391,3 +406,36 @@ def apply_misalignment(origin, normal, misalignment_level=0.0):
     
     return origin, normal
 
+#  Trying to add a slider that controls the depth of the view being displayed using Matplotlib Slider
+
+def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=10):
+    slice_data_list = []
+    offsets = np.linspace(-plane_size / 2, plane_size / 2, num_slices)
+
+    for offset in offsets:
+        slice_origin = lv_centroid + offset * lv_long_axis  # Adjust origin for each slice
+        xyz = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)
+        slice_data = interpolate_image(xyz, label_data, affine)
+        slice_data_list.append(slice_data)
+
+    # Create figure and axes
+    fig, ax = plt.subplots(figsize=(6, 6))
+    plt.subplots_adjust(bottom=0.25)
+
+    # Display the first slice initially
+    img = ax.imshow(slice_data_list[0], cmap='gray', origin='lower')
+    ax.set_title("Interactive View")
+    ax.axis('off')
+
+    ax_slider = plt.axes([0.2, 0.1, 0.6, 0.03])  # Position: [left, bottom, width, height]
+    slider = Slider(ax_slider, 'Slice Depth', 0, num_slices - 1, valinit=0, valstep=1)
+
+    # Update function for the slider
+    def update(val):
+        slice_idx = int(slider.val)  # Get the current slider value
+        img.set_data(slice_data_list[slice_idx])  # Update the image data
+        fig.canvas.draw_idle()  # Redraw the canvas
+
+    slider.on_changed(update)  # Connect the slider to the update function
+
+    plt.show()

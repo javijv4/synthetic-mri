@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import functions as fn
 
+
 # User inputs
 ct_path = 'data/labels.nii.gz'
 labels = {'LV': 1, 'RV': 2, 'Aorta': 3}
@@ -44,42 +45,78 @@ print("\nGenerating grid and interpolating slice...")
 xyz = fn.grid_in_plane(origin, normal, 50, size[0])
 slice_data = fn.interpolate_image(xyz, ct_data, ct_affine)
 
-plt.figure(figsize=(6, 6))
-plt.imshow(slice_data, cmap='gray', origin='lower')
-plt.title("Short-Axis View")
-plt.axis('off')
-plt.show()
+# plt.figure(figsize=(6, 6))
+# plt.imshow(slice_data, cmap='gray', origin='lower')
+# plt.title("Short-Axis View")
+# plt.axis('off')
+# plt.show()
 
 plane_size = size[0]
 spacing = 1.0
 
-# Generate data arrays
-# SA
-sa_data = ... # where SA data is a 3D array of shape (plane_size, plane_size, number of slices)
+
+# # Find the affine for each view given the normal and center of the slice
+# sa_affine = ... # 4x4 affine matrix
+# la_2CH_affine = ... # 4x4 affine matrix
+# la_3CH_affine = ... # 4x4 affine matrix
+# la_4CH_affine = ... # 4x4 affine matrix
 
 
-# all LA
-la_2CH_data = ... # where LA data is a 3D array of shape (plane_size, plane_size, 1)
-la_3CH_data = ... # where LA data is a 3D array of shape (plane_size, plane_size, 1)
-la_4CH_data = ... # where LA data is a 3D array of shape (plane_size, plane_size, 1)
+# print("\nGenerating interactive short axis view...")
+# fn.plot_interactive_view(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=20)
+
+print("\nGenerating short axis view:")
+sa_data, _ = fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size, spacing, plotOn = False)
+
+print("\nGenerating 2-chamber view:")
+la_2CH_data, _ = fn.main_2chamber_view(ct_path, plane_size, spacing, plotOn = False)
+
+print("\nGenerating 3-chamber view:")
+la_3CH_data, _ = fn.main_3chamber_view(ct_path, plane_size, spacing, plotOn = False)
+
+print("\nGenerating 4-chamber view:")
+la_4CH_data, _ = fn.main_4chamber_view(ct_path, plane_size, spacing, plotOn = False)
+
+# TODO need to figure out a way to show all 4 views at once without having to close out the tab everytime
 
 
-# Find the affine for each view given the normal and center of the slice
-sa_affine = ... # 4x4 affine matrix
-la_2CH_affine = ... # 4x4 affine matrix
-la_3CH_affine = ... # 4x4 affine matrix
-la_4CH_affine = ... # 4x4 affine matrix
 
-print("Generating short axis view:\n")
-fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size, spacing)
+print("\nDisplaying all views...")
+fig, axes = plt.subplots(2, 2, figsize=(12, 12))  # Create a 2x2 grid of subplots
 
-print("Generating 2-chamber view:\n")
-fn.plot_2_chamber_view(ct_data, ct_affine, lv_centroid, rv_centroid, plane_size, spacing)
+# Short-Axis View
+if sa_data is None:
+    print("Failed to generate short-axis view.")
+else:
+    # Use only the slice_data for imshow
+    axes[0, 0].imshow(sa_data, cmap='gray', origin='lower')
+    axes[0, 0].set_title("Short-Axis View")
+    axes[0, 0].axis('off')
 
-print("Generating 3-chamber view:\n")
-fn.plot_3_chamber_view(ct_data, ct_affine, lv_centroid, aorta_centroid, plane_size, spacing)
+# 2-Chamber View
+if sa_data is None:
+    print("Failed to generate 2-chamber view.")
+else:
+    axes[0, 1].imshow(la_2CH_data, cmap='gray', origin='lower')
+    axes[0, 1].set_title("2-Chamber View")
+    axes[0, 1].axis('off')
 
-print("Generating 4-chamber view:\n")
-fn.plot_4_chamber_view(ct_data, ct_affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing)
+# 3-Chamber View
+if sa_data is None:
+    print("Failed to generate 3-chamber view.")
+else:
+    axes[1, 0].imshow(la_3CH_data, cmap='gray', origin='lower')
+    axes[1, 0].set_title("3-Chamber View")
+    axes[1, 0].axis('off')
 
+# 4-Chamber View
+if la_4CH_data is None:
+    print("Failed to generate 4-chamber view.")
+else:
+    axes[1, 1].imshow(la_4CH_data, cmap='gray', origin='lower')
+    axes[1, 1].set_title("4-Chamber View")
+    axes[1, 1].axis('off')
 
+# Adjust layout and display the figure
+plt.tight_layout()
+plt.show()
