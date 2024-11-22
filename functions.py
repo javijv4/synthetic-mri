@@ -350,8 +350,7 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
 
     # Use a reference vector (like [0, 0, 1]) for cross-product calculation
     # https://liu.diva-portal.org/smash/get/diva2:1709829/FULLTEXT01.pdf
-    ref_vector = np.array([0, 0, 1]) if not np.allclose(v, [0, 0, 1]) else np.array([0, 1, 0])
-    normal = np.cross(v, ref_vector)
+    normal = np.cross(v, lv_long_axis)
     normal = normal / np.linalg.norm(normal)
 
     origin = lv_centroid
@@ -359,8 +358,7 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
     xyz = grid_in_plane(origin, normal, spacing, plane_size)
     
 
-    normal = np.cross(v, lv_long_axis)
-    normal = normal / np.linalg.norm(normal)
+
 
     origin = lv_centroid
     slice_data = interpolate_image(xyz, label_data, affine)
