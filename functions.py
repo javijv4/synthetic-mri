@@ -337,7 +337,7 @@ def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     return plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing, plotOn)
 
 
-def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_size=100, spacing=1.0, plotOn = True):
+def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, plane_size=100, spacing=1.0, plotOn = True):
     """
     Three chamber view. Have v be a vector between the aorta centroid and the LV centroid, get the normal of V, and the center be the LV centroid
     """
@@ -358,6 +358,11 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_s
 
     xyz = grid_in_plane(origin, normal, spacing, plane_size)
     
+
+    normal = np.cross(v, lv_long_axis)
+    normal = normal / np.linalg.norm(normal)
+
+    origin = lv_centroid
     slice_data = interpolate_image(xyz, label_data, affine)
     
     if plotOn: 
@@ -378,7 +383,8 @@ def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     
     lv_centroid = spatial_info["LV Centroid"]
     aorta_centroid = spatial_info["Aorta Centroid"]
-    
+    lv_long_axis = spatial_info["LV Long Axis"]
+
     if lv_centroid is None or aorta_centroid is None:
         print("Could not compute LV or Aorta centroids.")
         return None
@@ -387,8 +393,9 @@ def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     # print("LV Centroid:", lv_centroid, file = sourceFile)
     print("LV Centroid:", lv_centroid)
     print("Aorta Centroid:", aorta_centroid)
+    
 
-    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, plane_size, spacing, plotOn)
+    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, plane_size, spacing, plotOn)
 
 
     
