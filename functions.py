@@ -32,8 +32,9 @@ def readFromNIFTI(segName, correct_ras=True):
 def calculate_spatial_information(label_data, affine):
     # TODO: the labels should be passed as arguments to the function
     LV_LABEL = 1
-    RV_LABEL = 2
-    AORTA_LABEL = 3
+    RV_LABEL = 3
+    AORTA_LABEL = 6
+
 
     lv_centroid = calculate_centroid(label_data, LV_LABEL, affine)
     rv_centroid = calculate_centroid(label_data, RV_LABEL, affine)
