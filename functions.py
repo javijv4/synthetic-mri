@@ -35,7 +35,6 @@ def calculate_spatial_information(label_data, affine):
     RV_LABEL = 3
     AORTA_LABEL = 6
 
-
     lv_centroid = calculate_centroid(label_data, LV_LABEL, affine)
     rv_centroid = calculate_centroid(label_data, RV_LABEL, affine)
     aorta_centroid = calculate_centroid(label_data, AORTA_LABEL, affine)
@@ -215,7 +214,9 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 
 """  PLOTTING FUNCTIONS  """
 
-def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, plotOn = True):
+def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0,
+                    out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
+    # TODO: make number_of_slices spaced out_of_plane_spacing and return a 3D array
     if lv_centroid is None or lv_long_axis is None:
         print("Invalid LV centroid or long axis.")
         return None

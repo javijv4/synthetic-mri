@@ -5,15 +5,17 @@ Created on 2024/10/30 16:22:52
 
 @author: Javiera Jilberto Vallejos 
 '''
-
+import os
 from matplotlib import pyplot as plt
 import numpy as np
 import functions as fn
+import nibabel as nib
 
 
 # User inputs
 ct_path = 'data/labels.nii.gz'
-labels = {'LV': 1, 'RV': 2, 'Aorta': 3}
+out_path = 'data/'
+labels = {'LV': 1, 'RV': 3, 'Aorta': 6}
 inplane_spacing = 1.0       # Use this when generating the grid
 
 # Read CT image
@@ -53,7 +55,8 @@ slice_data = fn.interpolate_image(xyz, ct_data, ct_affine)
 
 plane_size = size[0]
 spacing = 1.0
-
+out_of_plane_spacing = 8.0
+number_of_slices = 13
 
 # # Find the affine for each view given the normal and center of the slice
 # sa_affine = ... # 4x4 affine matrix
@@ -63,10 +66,11 @@ spacing = 1.0
 
 
 # print("\nGenerating interactive short axis view...")
-# fn.plot_interactive_view(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=20)
+fn.plot_interactive_view(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=20)
 
 print("\nGenerating short axis view:")
-sa_data, _ = fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size, spacing, plotOn = False)
+sa_data, _ = fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size,
+                                spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 
 print("\nGenerating 2-chamber view:")
 la_2CH_data, _ = fn.main_2chamber_view(ct_path, plane_size, spacing, plotOn = False)
@@ -79,6 +83,17 @@ la_4CH_data, _ = fn.main_4chamber_view(ct_path, plane_size, spacing, plotOn = Fa
 
 # TODO need to figure out a way to show all 4 views at once without having to close out the tab everytime
 
+
+# Add misalignment
+magnitude = 5
+
+
+
+
+
+# Save views to nifti files
+if not os.path.exists(out_path):
+    os.makedirs(out_path, exists=True)
 
 
 print("\nDisplaying all views...")
