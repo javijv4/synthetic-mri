@@ -3,13 +3,14 @@
 '''
 Created on 2024/10/30 16:22:52
 
-@author: Javiera Jilberto Vallejos 
+@author: Javiera Jilberto Vallejos
 '''
 import os
 from matplotlib import pyplot as plt
 import numpy as np
 import functions as fn
 import nibabel as nib
+from mpl_toolkits.mplot3d import Axes3D
 
 
 # User inputs
@@ -34,39 +35,33 @@ rv_centroid = spatial_info["RV Centroid"]
 aorta_centroid = spatial_info["Aorta Centroid"]
 lv_long_axis = spatial_info["LV Long Axis"]
 
-# print("LV Centroid:", lv_centroid)
-# print("RV Centroid:", rv_centroid)
-# print("Aorta Centroid:", aorta_centroid)
-# print("LV Long Axis:", lv_long_axis)
+g1, _ = fn.grid_in_plane(lv_centroid, lv_long_axis, inplane_spacing, 2)
+g2 = fn.grid_in_plane2(lv_centroid, lv_long_axis, inplane_spacing, 2)
 
-# Generating short-axis slices # TODO make this for multiple slices along the long axis
-origin = lv_centroid
-normal = lv_long_axis
+print(g1[0:3])
+print(g2[0:3])
 
-print("\nGenerating grid and interpolating slice...")
-xyz = fn.grid_in_plane(origin, normal, 50, size[0])
-slice_data = fn.interpolate_image(xyz, ct_data, ct_affine)
 
-# plt.figure(figsize=(6, 6))
-# plt.imshow(slice_data, cmap='gray', origin='lower')
-# plt.title("Short-Axis View")
-# plt.axis('off')
-# plt.show()
+# # print("LV Centroid:", lv_centroid)
+# # print("RV Centroid:", rv_centroid)
+# # print("Aorta Centroid:", aorta_centroid)
+# # print("LV Long Axis:", lv_long_axis)
+
 
 plane_size = size[0]
 spacing = 1.0
 out_of_plane_spacing = 8.0
 number_of_slices = 13
 
-# # Find the affine for each view given the normal and center of the slice
-# sa_affine = ... # 4x4 affine matrix
-# la_2CH_affine = ... # 4x4 affine matrix
-# la_3CH_affine = ... # 4x4 affine matrix
-# la_4CH_affine = ... # 4x4 affine matrix
+# # # Find the affine for each view given the normal and center of the slice
+# # sa_affine = ... # 4x4 affine matrix
+# # la_2CH_affine = ... # 4x4 affine matrix
+# # la_3CH_affine = ... # 4x4 affine matrix
+# # la_4CH_affine = ... # 4x4 affine matrix
 
 
-# print("\nGenerating interactive short axis view...")
-fn.plot_interactive_view(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=20)
+# # print("\nGenerating interactive short axis view...")
+# fn.plot_interactive_view(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=20)
 
 print("\nGenerating short axis view:")
 sa_data, _ = fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size,
@@ -81,19 +76,19 @@ la_3CH_data, _ = fn.main_3chamber_view(ct_path, plane_size, spacing, plotOn = Fa
 print("\nGenerating 4-chamber view:")
 la_4CH_data, _ = fn.main_4chamber_view(ct_path, plane_size, spacing, plotOn = False)
 
-# TODO need to figure out a way to show all 4 views at once without having to close out the tab everytime
+# # TODO need to figure out a way to show all 4 views at once without having to close out the tab everytime
 
 
-# Add misalignment
-magnitude = 5
+# # Add misalignment
+# magnitude = 5
 
 
 
 
 
-# Save views to nifti files
-if not os.path.exists(out_path):
-    os.makedirs(out_path, exists=True)
+# # Save views to nifti files
+# if not os.path.exists(out_path):
+#     os.makedirs(out_path, exists=True)
 
 
 print("\nDisplaying all views...")

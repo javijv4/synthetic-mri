@@ -51,6 +51,92 @@ def calculate_spatial_information(label_data, affine):
 
 
 def grid_in_plane(origin, normal, spacing, plane_size):
+    """
+    Generates a grid of points in a plane defined by an origin and a normal vector.
+    Note that the grid is centered at the origin and the points are spaced the same in both in-plane directions.
+    You want to make sure the grid is large enough to cover the entire image (plane_size argument).
+
+    Args:
+        origin (numpy.ndarray): A 3-element numpy array representing the coordinates of the origin point of the plane.
+        normal (numpy.ndarray): A 3-element numpy array representing the normal vector of the plane.
+        plane_size (float): The size of the plane in pixel units
+
+    Returns:
+        numpy.ndarray: A 2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
+    """
+
+    # IMPORTNAT CALC 3 REMINDERS:
+    # NORMAL VECTOR IS PERPENDICULAR TO A PLANE OR A SURFACE, and its used to define orientation of plane
+    # orthogonal vector check if two VECTORS are perpendicular to each other: if a dot product b = 0 they are orthogonal
+    # conver to normal unit vector using numpys built in functions
+    normal = normal / np.linalg.norm(normal)
+
+    # if normal is close to the x axis [1,0,0], create an orthogonal vector
+    # else then normal is closer to the y axis, create an orthogonal vector with the y axis
+    u = np.array([1, 0, 0]) if abs(normal[0]) < abs(normal[1]) else np.array([0, 1, 0])
+
+    # make v which is orthogonal to u and v
+    v = np.cross(normal, u)
+    v = v / np.linalg.norm(v)   # Normalizing vector
+
+    # Make sure u and v are orthogonal to each other
+    u = np.cross(v, normal)
+    u = u / np.linalg.norm(u)   # Normalizing vector
+
+    # Create basis vectors for the plane
+    basis_xyz = np.column_stack((u, v, normal))
+
+
+    #linespace generates sequence of of evenly spaced numbers of range
+    # creates planesize amount of evenly spaced values from -half_size to half_size
+    # creates a 1d array of evenly spaced points
+    npoints = int(np.ceil(plane_size / spacing)) + 1  # Calculate number of points to cover plane_size
+    lin_space = np.arange(npoints)                    # this ensures the spacing is correct
+
+    # .meshgrid produces coordinate matrices from coordinate vectors
+    # takes 1d array of evenly spaced points and combines into 2d grid
+    grid_i, grid_j = np.meshgrid(lin_space, lin_space)
+    basis_ijk = np.array([[1, 0, 0],
+                            [0, 1, 0],
+                            [0, 0, 1]])
+    ijk = np.column_stack((grid_i.ravel(), grid_j.ravel(), np.zeros_like(grid_i.ravel())))
+
+
+    # Create the rotation matrix (this is a formula I learned in undergrad, I can't find a reference for it, but it works!)
+    Q = np.array([[np.dot(basis_xyz[0], basis_ijk[0]), np.dot(basis_xyz[0], basis_ijk[1]), np.dot(basis_xyz[0], basis_ijk[2])],
+                    [np.dot(basis_xyz[1], basis_ijk[0]), np.dot(basis_xyz[1], basis_ijk[1]), np.dot(basis_xyz[1], basis_ijk[2])],
+                    [np.dot(basis_xyz[2], basis_ijk[0]), np.dot(basis_xyz[2], basis_ijk[1]), np.dot(basis_xyz[2], basis_ijk[2])]])
+
+
+    # Step 1: Scale the plane to the desired spacing (scaling first avoids shearing deformations)
+    S = np.eye(3)
+    S[0,0] = spacing
+    S[1,1] = spacing
+    S[2,2] = 1
+    ijk_scaled = np.dot(S, ijk.T).T
+
+
+    # Step 2: Rotate the grid points to align with the desired plane
+    ijk_scaled_rot = np.dot(Q, ijk_scaled.T).T
+
+    # Step 3: Find the translation that centers the rotated plane at the origin
+    ijk_rot_scaled_center = np.mean(ijk_scaled_rot, axis=0)
+    t = origin - ijk_rot_scaled_center
+
+    # Put all the transformations into a single affine matrix
+    A = np.eye(4)
+    A[:3, :3] = Q@S
+    A[:3, 3] = t
+
+    # Compute 3D coordinates for each point on the
+    #  creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
+    # grid x and y determine x and y cords while u and v orient cords in 3d space to essentially create grind
+    points = (A[:3, :3] @ ijk.T).T + A[:3, 3] # This should be the same as xyz
+
+    #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
+    return points, A
+
+def grid_in_plane2(origin, normal, spacing, plane_size):
     # TODO: instead of the number of points, the function should receive the spacing between points
     """
     Generates a grid of points in a plane defined by an origin and a normal vector.
@@ -66,41 +152,42 @@ def grid_in_plane(origin, normal, spacing, plane_size):
         numpy.ndarray: A 2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
     """
 
-    # IMPORTNAT CALC 3 REMINDERS: 
+    # IMPORTNAT CALC 3 REMINDERS:
     # NORMAL VECTOR IS PERPENDICULAR TO A PLANE OR A SURFACE, and its used to define orientation of plane
     # orthogonal vector check if two VECTORS are perpendicular to each other: if a dot product b = 0 they are orthogonal
     # conver to normal unit vector using numpys built in functions
     normal = normal / np.linalg.norm(normal)
-    
+
     # if normal is close to the x axis [1,0,0], create an orthogonal vector
-    # else then normal is closer to the y axis, create an orthogonal vector with the y axis 
+    # else then normal is closer to the y axis, create an orthogonal vector with the y axis
     if not np.allclose(normal, [1, 0, 0]):
         u = np.cross(normal, [1, 0, 0])
     else:
         u = np.cross(normal, [0, 1, 0])
-    
+
     # make a unit vector (normalize it)
     u = u / np.linalg.norm(u)
 
     # make v which is orthogonal to u and v
     v = np.cross(normal, u)
-    
+    v = v / np.linalg.norm(v)   # Normalizing vector
+
     # Create grid points within the plane
     half_size = plane_size / 2
 
-    #linespace generates sequence of of evenly spaced numbers of range  
+    #linespace generates sequence of of evenly spaced numbers of range
     # creates planesize amount of evenly spaced values from -half_size to half_size
     # creates a 1d array of evenly spaced points
     npoints = int(np.ceil(plane_size / spacing))  # Calculate number of points to cover plane_size
     lin_space = np.linspace(-half_size, half_size, npoints)
 
-    # cretea grid in plane using u and v as axes? 
+    # cretea grid in plane using u and v as axes?
     # .meshgrid produces coordinate matrices from coordinate vectors
-    # takes 1d array of evenly spaced points and combines into 2d grid 
+    # takes 1d array of evenly spaced points and combines into 2d grid
     grid_x, grid_y = np.meshgrid(lin_space, lin_space)
     # grid_y = np.meshgrid(lin_space, lin_space)
-    
-    # Compute 3D coordinates for each point on the 
+
+    # Compute 3D coordinates for each point on the
     #  creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
     # grid x and y determine x and y cords while u and v orient cords in 3d space to essentially create grind
     points = origin + grid_x[..., None] * u + grid_y[..., None] * v
@@ -132,14 +219,14 @@ def interpolate_image(xyz, data, ct_affine):
     ijk[:, 0] = np.clip(ijk[:, 0], 0, data.shape[0] - 1)
     ijk[:, 1] = np.clip(ijk[:, 1], 0, data.shape[1] - 1)
     ijk[:, 2] = np.clip(ijk[:, 2], 0, data.shape[2] - 1)
-        
+
     # Sample data at the nearest indices
-    # ijk[:, 0] grabs first column, ijk[:, 1] grabs second column, ijk[:, 2] grabs third column, 
+    # ijk[:, 0] grabs first column, ijk[:, 1] grabs second column, ijk[:, 2] grabs third column,
     # first col is the x, 2nd is y
     # effectively create three arrays of cords which is x,y,z of all points we want to sample
     interpolated_data = data[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
     # print("Transformed ijk indices:", ijk[:10])
-    
+
     # Reshape to a 2D grid so we can use in imshow()
     N = int(np.sqrt(len(xyz)))
     # trying to flip the y axis
@@ -196,7 +283,7 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
     # create instance of PCA class with 3 principal components of xyz
     pca = PCA(n_components=3)
     pca.fit(coords)
-    
+
     # The first principal component (i.e., the first vector produced by PCA) points in the direction of the maximum variance in the dataset. For the LV region:
     # The first principal component corresponds to the longest dimension of the LV shape.
     # This is why you can use it to estimate the LV long axis.
@@ -216,19 +303,20 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 
 def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0,
                     out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
-    # TODO: make number_of_slices spaced out_of_plane_spacing and return a 3D array
+    # TODO: make number_of_slices spaced out_of_plane_spacing and return a 3D array. Note that the affine matrix should be the same for all slices.
+    # However, the grid_in_plane function will return an affine with a different translation vector for each slice.
+    # You will need to modify the affine such that it can transform the 3D array into the correct position.
     if lv_centroid is None or lv_long_axis is None:
         print("Invalid LV centroid or long axis.")
         return None
-    
-    xyz = grid_in_plane(lv_centroid, lv_long_axis, spacing, plane_size)
-    
+
+    xyz, slice_affine = grid_in_plane(lv_centroid, lv_long_axis, spacing, plane_size)
+
     slice_data = interpolate_image(xyz, label_data, affine)
 
-    #  transformed_coords = np.dot(affine[:3, :3], xyz.T).T + affine[:3, 3]
     # return slice_data, transformed_coords
     transformed_coords = [1,1,1]
-    if plotOn: 
+    if plotOn:
         plt.figure(figsize=(6, 6))
         plt.imshow(slice_data, cmap='gray', origin='lower')
         plt.title("Short-Axis View")
@@ -242,17 +330,17 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
         return None
-    
+
     v = rv_centroid - lv_centroid
-    v = v / np.linalg.norm(v) 
+    v = v / np.linalg.norm(v)
 
     origin = lv_centroid
     normal = v
 
-    xyz = grid_in_plane(origin, normal, spacing, plane_size)
-    
+    xyz, slice_affine = grid_in_plane(origin, normal, spacing, plane_size)
+
     slice_data = interpolate_image(xyz, label_data, affine)
-    
+
     if plotOn:
         plt.figure(figsize=(6, 6))
         plt.imshow(slice_data, cmap='gray', origin='lower')
@@ -268,12 +356,12 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
 
 def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
-    
+
     spatial_info = calculate_spatial_information(label_data, affine)
-    
+
     lv_centroid = spatial_info["LV Centroid"]
     rv_centroid = spatial_info["RV Centroid"]
-    
+
     if lv_centroid is None or rv_centroid is None:
         print("Could not compute LV or RV centroids.")
         return None
@@ -283,16 +371,16 @@ def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
 
     return plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size, spacing, plotOn)
 
-    
+
 
 
 def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=100, spacing=1.0, plotOn = True):
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
         return None, None
-    
+
     v = rv_centroid - lv_centroid
-    v = v / np.linalg.norm(v) 
+    v = v / np.linalg.norm(v)
 
     # Choose a reference vector (like [0, 0, 1]) to compute the cross-product
     # ref_vector = np.array([0, 0, 1]) if not np.allclose(v, [0, 0, 1]) else np.array([0, 1, 0])
@@ -304,11 +392,11 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
     origin = lv_centroid
     normal = x
 
-    xyz = grid_in_plane(origin, normal, spacing, plane_size)
-    
+    xyz, slice_affine = grid_in_plane(origin, normal, spacing, plane_size)
+
     slice_data = interpolate_image(xyz, label_data, affine)
-    
-    if plotOn: 
+
+    if plotOn:
         plt.figure(figsize=(6, 6))
         plt.imshow(slice_data, cmap='gray', origin='lower')
         plt.title("4-Chamber View")
@@ -320,9 +408,9 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
 
 def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
-    
+
     spatial_info = calculate_spatial_information(label_data, affine)
-    
+
     lv_centroid = spatial_info["LV Centroid"]
     rv_centroid = spatial_info["RV Centroid"]
     lv_long_axis = spatial_info["LV Long Axis"]
@@ -346,9 +434,9 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
     if lv_centroid is None or aorta_centroid is None:
         print("Invalid LV or Aorta centroid.")
         return None, None
-     
+
     v = lv_centroid - aorta_centroid
-    v = v / np.linalg.norm(v) 
+    v = v / np.linalg.norm(v)
 
     # Use a reference vector (like [0, 0, 1]) for cross-product calculation
     # https://liu.diva-portal.org/smash/get/diva2:1709829/FULLTEXT01.pdf
@@ -357,15 +445,15 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
 
     origin = lv_centroid
 
-    xyz = grid_in_plane(origin, normal, spacing, plane_size)
-    
+    xyz, slice_affine = grid_in_plane(origin, normal, spacing, plane_size)
+
 
 
 
     origin = lv_centroid
     slice_data = interpolate_image(xyz, label_data, affine)
-    
-    if plotOn: 
+
+    if plotOn:
         plt.figure(figsize=(6, 6))
         plt.imshow(slice_data, cmap='gray', origin='lower')
         plt.title("3-Chamber View")
@@ -378,9 +466,9 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
 
 def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
-    
+
     spatial_info = calculate_spatial_information(label_data, affine)
-    
+
     lv_centroid = spatial_info["LV Centroid"]
     aorta_centroid = spatial_info["Aorta Centroid"]
     lv_long_axis = spatial_info["LV Long Axis"]
@@ -393,12 +481,12 @@ def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     # print("LV Centroid:", lv_centroid, file = sourceFile)
     print("LV Centroid:", lv_centroid)
     print("Aorta Centroid:", aorta_centroid)
-    
+
 
     return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, plane_size, spacing, plotOn)
 
 
-    
+
 def apply_misalignment(origin, normal, misalignment_level=0.0):
 
     if misalignment_level > 0:
@@ -409,8 +497,8 @@ def apply_misalignment(origin, normal, misalignment_level=0.0):
         # Apply a small random rotation to the normal vector
         rotation = np.random.randn(3) * misalignment_level
         normal = normal + rotation
-        normal = normal / np.linalg.norm(normal) 
-    
+        normal = normal / np.linalg.norm(normal)
+
     return origin, normal
 
 #  Trying to add a slider that controls the depth of the view being displayed using Matplotlib Slider
@@ -421,7 +509,7 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
 
     for offset in offsets:
         slice_origin = lv_centroid + offset * lv_long_axis  # Adjust origin for each slice
-        xyz = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)
+        xyz, slice_affine = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)
         slice_data = interpolate_image(xyz, label_data, affine)
         slice_data_list.append(slice_data)
 
