@@ -24,7 +24,7 @@ ct_data, ct_affine, pixdim = fn.readFromNIFTI('data/labels.nii.gz')
 size = ct_data.shape
 
 # Calculate position of LV/RV/Aorta
-spatial_info = fn.calculate_spatial_information(ct_data, ct_affine)
+spatial_info = fn.calculate_spatial_information(ct_data, ct_affine, labels['LV'], labels['RV'], labels["Aorta"])
 
 print("\nSpatial Information:")
 for key, value in spatial_info.items():
@@ -64,19 +64,18 @@ number_of_slices = 13
 # fn.plot_interactive_view(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=20)
 
 print("\nGenerating short axis view:")
-sa_data, _ = fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size,
+sa_data, saAffineData = fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_long_axis, plane_size,
                                 spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 
 print("\nGenerating 2-chamber view:")
-la_2CH_data, _ = fn.main_2chamber_view(ct_path, plane_size, spacing, plotOn = False)
+la_2CH_data, la_2CH_affine = fn.main_2chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 
 print("\nGenerating 3-chamber view:")
-la_3CH_data, _ = fn.main_3chamber_view(ct_path, plane_size, spacing, plotOn = False)
+la_3CH_data, la_3CH_affine = fn.main_3chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 
 print("\nGenerating 4-chamber view:")
-la_4CH_data, _ = fn.main_4chamber_view(ct_path, plane_size, spacing, plotOn = False)
+la_4CH_data, la_4CH_affine = fn.main_4chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 
-# # TODO need to figure out a way to show all 4 views at once without having to close out the tab everytime
 
 
 # # Add misalignment
@@ -90,46 +89,7 @@ la_4CH_data, _ = fn.main_4chamber_view(ct_path, plane_size, spacing, plotOn = Fa
 # if not os.path.exists(out_path):
 #     os.makedirs(out_path, exists=True)
 
-
-print("\nDisplaying all views...")
-fig, axes = plt.subplots(2, 2, figsize=(12, 12))  # Create a 2x2 grid of subplots
-
-# Short-Axis View
-if sa_data is None:
-    print("Failed to generate short-axis view.")
-else:
-    # Use only the slice_data for imshow
-    axes[0, 0].imshow(sa_data, cmap='gray', origin='lower')
-    axes[0, 0].set_title("Short-Axis View")
-    axes[0, 0].axis('off')
-
-# 2-Chamber View
-if sa_data is None:
-    print("Failed to generate 2-chamber view.")
-else:
-    axes[0, 1].imshow(la_2CH_data, cmap='gray', origin='lower')
-    axes[0, 1].set_title("2-Chamber View")
-    axes[0, 1].axis('off')
-
-# 3-Chamber View
-if sa_data is None:
-    print("Failed to generate 3-chamber view.")
-else:
-    axes[1, 0].imshow(la_3CH_data, cmap='gray', origin='lower')
-    axes[1, 0].set_title("3-Chamber View")
-    axes[1, 0].axis('off')
-
-# 4-Chamber View
-if la_4CH_data is None:
-    print("Failed to generate 4-chamber view.")
-else:
-    axes[1, 1].imshow(la_4CH_data, cmap='gray', origin='lower')
-    axes[1, 1].set_title("4-Chamber View")
-    axes[1, 1].axis('off')
-
-# Adjust layout and display the figure
-plt.tight_layout()
-plt.show()
+fn.display_views(sa_data=sa_data, la_2CH_data=la_2CH_data, la_3CH_data=la_3CH_data, la_4CH_data=la_4CH_data)
 
 
 

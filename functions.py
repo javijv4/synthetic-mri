@@ -5,7 +5,8 @@ from sklearn.decomposition import PCA
 import monai.transforms as mt
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
-
+from IPython.display import display
+import ipywidgets as widgets
 
 
 
@@ -29,11 +30,8 @@ def readFromNIFTI(segName, correct_ras=True):
     return (seg, transform, pixdim)
 
 
-def calculate_spatial_information(label_data, affine):
-    # TODO: the labels should be passed as arguments to the function
-    LV_LABEL = 1
-    RV_LABEL = 3
-    AORTA_LABEL = 6
+def calculate_spatial_information(label_data, affine, LV_LABEL=1, RV_LABEL=3, AORTA_LABEL=6):
+
 
     lv_centroid = calculate_centroid(label_data, LV_LABEL, affine)
     rv_centroid = calculate_centroid(label_data, RV_LABEL, affine)
@@ -64,27 +62,17 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     Returns:
         numpy.ndarray: A 2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
     """
-
-    # IMPORTNAT CALC 3 REMINDERS:
     # NORMAL VECTOR IS PERPENDICULAR TO A PLANE OR A SURFACE, and its used to define orientation of plane
     # orthogonal vector check if two VECTORS are perpendicular to each other: if a dot product b = 0 they are orthogonal
     # conver to normal unit vector using numpys built in functions
     normal = normal / np.linalg.norm(normal)
 
-    # if normal is close to the x axis [1,0,0], create an orthogonal vector
-    # else then normal is closer to the y axis, create an orthogonal vector with the y axis
     u = np.array([1, 0, 0]) if abs(normal[0]) < abs(normal[1]) else np.array([0, 1, 0])
-
-    # make v which is orthogonal to u and v
     v = np.cross(normal, u)
     v = v / np.linalg.norm(v)   # Normalizing vector
-
-    # Make sure u and v are orthogonal to each other
     u = np.cross(v, normal)
     u = u / np.linalg.norm(u)   # Normalizing vector
-
-    # Create basis vectors for the plane
-    basis_xyz = np.column_stack((u, v, normal))
+    basis_xyz = np.column_stack((u, v, normal)) # Create basis vectors for the plane
 
 
     #linespace generates sequence of of evenly spaced numbers of range
@@ -100,7 +88,6 @@ def grid_in_plane(origin, normal, spacing, plane_size):
                             [0, 1, 0],
                             [0, 0, 1]])
     ijk = np.column_stack((grid_i.ravel(), grid_j.ravel(), np.zeros_like(grid_i.ravel())))
-
 
     # Create the rotation matrix (this is a formula I learned in undergrad, I can't find a reference for it, but it works!)
     Q = np.array([[np.dot(basis_xyz[0], basis_ijk[0]), np.dot(basis_xyz[0], basis_ijk[1]), np.dot(basis_xyz[0], basis_ijk[2])],
@@ -157,23 +144,14 @@ def grid_in_plane2(origin, normal, spacing, plane_size):
     # orthogonal vector check if two VECTORS are perpendicular to each other: if a dot product b = 0 they are orthogonal
     # conver to normal unit vector using numpys built in functions
     normal = normal / np.linalg.norm(normal)
-
-    # if normal is close to the x axis [1,0,0], create an orthogonal vector
-    # else then normal is closer to the y axis, create an orthogonal vector with the y axis
     if not np.allclose(normal, [1, 0, 0]):
         u = np.cross(normal, [1, 0, 0])
     else:
         u = np.cross(normal, [0, 1, 0])
-
-    # make a unit vector (normalize it)
     u = u / np.linalg.norm(u)
-
-    # make v which is orthogonal to u and v
     v = np.cross(normal, u)
     v = v / np.linalg.norm(v)   # Normalizing vector
-
-    # Create grid points within the plane
-    half_size = plane_size / 2
+    half_size = plane_size / 2     # Create grid points within the plane
 
     #linespace generates sequence of of evenly spaced numbers of range
     # creates planesize amount of evenly spaced values from -half_size to half_size
@@ -181,14 +159,10 @@ def grid_in_plane2(origin, normal, spacing, plane_size):
     npoints = int(np.ceil(plane_size / spacing))  # Calculate number of points to cover plane_size
     lin_space = np.linspace(-half_size, half_size, npoints)
 
-    # cretea grid in plane using u and v as axes?
-    # .meshgrid produces coordinate matrices from coordinate vectors
-    # takes 1d array of evenly spaced points and combines into 2d grid
     grid_x, grid_y = np.meshgrid(lin_space, lin_space)
-    # grid_y = np.meshgrid(lin_space, lin_space)
 
     # Compute 3D coordinates for each point on the
-    #  creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
+    # creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
     # grid x and y determine x and y cords while u and v orient cords in 3d space to essentially create grind
     points = origin + grid_x[..., None] * u + grid_y[..., None] * v
 
@@ -310,51 +284,61 @@ def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=10
         print("Invalid LV centroid or long axis.")
         return None
 
-    xyz, slice_affine = grid_in_plane(lv_centroid, lv_long_axis, spacing, plane_size)
+    slices = []
+    slice_affines = []
 
-    slice_data = interpolate_image(xyz, label_data, affine)
+    for sliceIndex in range(number_of_slices): 
+        slice_origin = lv_centroid + (sliceIndex - number_of_slices // 2) * out_of_plane_spacing * lv_long_axis         # print(f"Slice {sliceIndex} Origin: {slice_origin}")
+        xyz, slice_affine = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)         # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
+        slice_affine[:3, 3] = slice_origin
+        slice_data = interpolate_image(xyz, label_data, affine)
+        slices.append(slice_data)
+        slice_affines.append(slice_affine)
+    slices_3d = np.stack(slices, axis=0)
 
-    # return slice_data, transformed_coords
-    transformed_coords = [1,1,1]
     if plotOn:
+        middle_index = number_of_slices // 2
         plt.figure(figsize=(6, 6))
-        plt.imshow(slice_data, cmap='gray', origin='lower')
-        plt.title("Short-Axis View")
+        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
+        plt.title(f"Middle Slice (Slice {middle_index + 1})")
         plt.axis('off')
         plt.show()
 
-    return slice_data, transformed_coords
+    return slices_3d, slice_affines
 
-def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0, plotOn = True):
+def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0, 
+                        out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
 
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
         return None
 
+    slices = []
+    slice_affines = []
     v = rv_centroid - lv_centroid
     v = v / np.linalg.norm(v)
 
-    origin = lv_centroid
-    normal = v
-
-    xyz, slice_affine = grid_in_plane(origin, normal, spacing, plane_size)
-
-    slice_data = interpolate_image(xyz, label_data, affine)
+    for slice_index in range(number_of_slices):
+        slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * v  # print(f"Slice {sliceIndex} Origin: {slice_origin}")
+        xyz, slice_affine = grid_in_plane(slice_origin, v, spacing, plane_size) # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
+        slice_affine[:3, 3] = slice_origin
+        slice_data = interpolate_image(xyz, label_data, affine)
+        slices.append(slice_data)
+        slice_affines.append(slice_affine)
+    slices_3d = np.stack(slices, axis=0)
 
     if plotOn:
+        middle_index = number_of_slices // 2
         plt.figure(figsize=(6, 6))
-        plt.imshow(slice_data, cmap='gray', origin='lower')
-        plt.title("2-Chamber View")
+        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
+        plt.title(f"Middle Slice (Slice {middle_index + 1})")
         plt.axis('off')
         plt.show()
 
-    #  from chatgpt? returning affined data
-    transformed_coords = [1,1,1]
-    return slice_data, transformed_coords
+    return slices_3d, slice_affine
 
 
-
-def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
+def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
 
     spatial_info = calculate_spatial_information(label_data, affine)
@@ -369,44 +353,45 @@ def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     print("LV Centroid:", lv_centroid)
     print("RV Centroid:", rv_centroid)
 
-    return plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size, spacing, plotOn)
+    return plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn)
 
 
 
 
-def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=100, spacing=1.0, plotOn = True):
+def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=100, spacing=1.0, 
+                         out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
         return None, None
-
+    
+    slices = []
+    slice_affines = []
     v = rv_centroid - lv_centroid
     v = v / np.linalg.norm(v)
-
-    # Choose a reference vector (like [0, 0, 1]) to compute the cross-product
-    # ref_vector = np.array([0, 0, 1]) if not np.allclose(v, [0, 0, 1]) else np.array([0, 1, 0])
-    # x = np.cross(v, ref_vector)
-
     x = np.cross(lv_long_axis, v)
     x = x / np.linalg.norm(x)
 
-    origin = lv_centroid
-    normal = x
+    for slice_index in range(number_of_slices):
+        slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * x
+        xyz, slice_affine = grid_in_plane(slice_origin, x, spacing, plane_size)
+        slice_affine[:3, 3] = slice_origin
+        slice_data = interpolate_image(xyz, label_data, affine)
+        slices.append(slice_data)
+        slice_affines.append(slice_affine)
+    slices_3d = np.stack(slices, axis=0)
 
-    xyz, slice_affine = grid_in_plane(origin, normal, spacing, plane_size)
-
-    slice_data = interpolate_image(xyz, label_data, affine)
 
     if plotOn:
+        middle_index = number_of_slices // 2
         plt.figure(figsize=(6, 6))
-        plt.imshow(slice_data, cmap='gray', origin='lower')
-        plt.title("4-Chamber View")
+        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
+        plt.title(f"Middle Slice (Slice {middle_index + 1})")
         plt.axis('off')
         plt.show()
 
-    transformed_coords = [1,1,1]
-    return slice_data, transformed_coords
+    return slice_data, slice_affines
 
-def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
+def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing = 8.0, number_of_slices = 13, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
 
     spatial_info = calculate_spatial_information(label_data, affine)
@@ -423,11 +408,11 @@ def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
     print("RV Centroid:", rv_centroid)
     print("LV Long Axis:", lv_long_axis)
 
+    return plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn)
 
-    return plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing, plotOn)
 
-
-def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, plane_size=100, spacing=1.0, plotOn = True):
+def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, plane_size=100, 
+                        spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
     """
     Three chamber view. Have v be a vector between the aorta centroid and the LV centroid, get the normal of V, and the center be the LV centroid
     """
@@ -435,36 +420,35 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
         print("Invalid LV or Aorta centroid.")
         return None, None
 
+    slices = []
+    slice_affines = []
     v = lv_centroid - aorta_centroid
     v = v / np.linalg.norm(v)
-
-    # Use a reference vector (like [0, 0, 1]) for cross-product calculation
-    # https://liu.diva-portal.org/smash/get/diva2:1709829/FULLTEXT01.pdf
     normal = np.cross(v, lv_long_axis)
     normal = normal / np.linalg.norm(normal)
 
-    origin = lv_centroid
-
-    xyz, slice_affine = grid_in_plane(origin, normal, spacing, plane_size)
-
-
-
-
-    origin = lv_centroid
-    slice_data = interpolate_image(xyz, label_data, affine)
+    for slice_index in range(number_of_slices):
+        # Adjust origin for each slice
+        slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
+        xyz, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
+        slice_affine[:3, 3] = slice_origin
+        slice_data = interpolate_image(xyz, label_data, affine)
+        slices.append(slice_data)
+        slice_affines.append(slice_affine)
+    slices_3d = np.stack(slices, axis=0)
 
     if plotOn:
+        middle_index = number_of_slices // 2
         plt.figure(figsize=(6, 6))
-        plt.imshow(slice_data, cmap='gray', origin='lower')
-        plt.title("3-Chamber View")
+        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
+        plt.title(f"Middle Slice (Slice {middle_index + 1})")
         plt.axis('off')
         plt.show()
 
-    transformed_coords = [1,1,1]
-    return slice_data, transformed_coords
+    return slices_3d, slice_affines
 
 
-def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
+def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn=True):
     label_data, affine, _ = readFromNIFTI(seg_file)
 
     spatial_info = calculate_spatial_information(label_data, affine)
@@ -477,14 +461,12 @@ def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, plotOn = True):
         print("Could not compute LV or Aorta centroids.")
         return None
 
-    # sourceFile = open('demo.txt', 'w')
-    # print("LV Centroid:", lv_centroid, file = sourceFile)
     print("LV Centroid:", lv_centroid)
     print("Aorta Centroid:", aorta_centroid)
 
 
-    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, plane_size, spacing, plotOn)
-
+    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis,
+                               plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn)
 
 
 def apply_misalignment(origin, normal, misalignment_level=0.0):
@@ -513,11 +495,9 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
         slice_data = interpolate_image(xyz, label_data, affine)
         slice_data_list.append(slice_data)
 
-    # Create figure and axes
     fig, ax = plt.subplots(figsize=(6, 6))
     plt.subplots_adjust(bottom=0.25)
 
-    # Display the first slice initially
     img = ax.imshow(slice_data_list[0], cmap='gray', origin='lower')
     ax.set_title("Interactive View")
     ax.axis('off')
@@ -529,8 +509,169 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
     def update(val):
         slice_idx = int(slider.val)  # Get the current slider value
         img.set_data(slice_data_list[slice_idx])  # Update the image data
-        fig.canvas.draw_idle()  # Redraw the canvas
+        fig.canvas.draw_idle()  
 
     slider.on_changed(update)  # Connect the slider to the update function
 
+    plt.show()
+
+
+# def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=None):
+#     print("\nDisplaying all views...")
+#     fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+
+#    # Short-Axis View
+#     sliders = []
+
+#     def add_slider(ax, data, title, slider_pos):
+#         img = ax.imshow(data[0], cmap='gray', origin='lower')
+#         ax.set_title(title)
+#         ax.axis('off')
+
+#         ax_slider = plt.axes(slider_pos)
+#         slider = Slider(ax_slider, f'{title} Depth', 0, data.shape[0] - 1, valinit=0, valstep=1)
+#         sliders.append(slider)
+
+#         def update(val):
+#             slice_idx = int(slider.val)
+#             img.set_data(data[slice_idx])
+#             fig.canvas.draw_idle()
+
+#         slider.on_changed(update)
+
+#     if sa_data is None:
+#        print("Failed to generate short-axis view.")
+#        axes[0, 0].axis('off')
+#     else:
+#         # middle_index = sa_data.shape[0] // 2
+#         # axes[0, 0].imshow(sa_data[middle_index], cmap='gray', origin='lower')
+#         # montage = np.concatenate(sa_data, axis=1)
+#         # axes[0, 0].imshow(montage, cmap='gray', origin='lower')
+#         # axes[0, 0].set_title("Short-Axis View (All Slices)")
+#         # axes[0, 0].axis('off')
+#         if sa_data.ndim == 3:  # Interactive slider for 3D data
+#             add_slider(axes[0, 0], sa_data, "Short-Axis View", [0.1, 0.02, 0.3, 0.03])
+
+
+#    # 2-Chamber View
+#     if la_2CH_data is None:
+#        print("Failed to generate 2-chamber view.")
+#        axes[0, 1].axis('off') 
+#     else:
+#         if la_2CH_data.ndim == 3: 
+#             print("Displaying Two-Chamber View...")
+#             add_slider(axes[0, 1], la_2CH_data, "2-Chamber View", [0.6, 0.02, 0.3, 0.03])
+
+
+
+#    # 3-Chamber View
+#     if la_3CH_data is None:
+#        print("Failed to generate 3-chamber view.")
+#        axes[1, 0].axis('off')
+#     else:
+#        if la_3CH_data.ndim == 3:
+#             print("Adding interactive slider for 3-Chamber View...")
+#             add_slider(axes[1, 0], la_3CH_data, "3-Chamber View", [0.1, 0.96, 0.3, 0.03])
+
+
+#    # 4-Chamber View
+#     if la_4CH_data is None:
+#        print("Failed to generate 4-chamber view.")
+#        axes[1, 1].axis('off')
+#     else:
+#        if la_4CH_data.ndim == 3:
+#             print("Adding interactive slider for 4-Chamber View...")
+#             add_slider(axes[1, 1], la_4CH_data, "4-Chamber View", [0.6, 0.96, 0.3, 0.03])
+
+
+#     plt.tight_layout()
+#     plt.show()
+
+
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Slider
+import numpy as np
+
+def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=None):
+    print("\nDisplaying all views...")
+    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+
+    # Determine the maximum number of slices across all views
+    max_slices = max(
+        sa_data.shape[0] if sa_data is not None and sa_data.ndim == 3 else 0,
+        la_2CH_data.shape[0] if la_2CH_data is not None and la_2CH_data.ndim == 3 else 0,
+        la_3CH_data.shape[0] if la_3CH_data is not None and la_3CH_data.ndim == 3 else 0,
+        la_4CH_data.shape[0] if la_4CH_data is not None and la_4CH_data.ndim == 3 else 0,
+    )
+
+    # Helper function to display a specific slice
+    def display_slice(slice_idx):
+        if sa_data is not None and sa_data.ndim == 3:
+            imgs[0].set_data(sa_data[slice_idx])
+        if la_2CH_data is not None and la_2CH_data.ndim == 3:
+            imgs[1].set_data(la_2CH_data[slice_idx])
+        if la_3CH_data is not None and la_3CH_data.ndim == 3:
+            imgs[2].set_data(la_3CH_data[slice_idx])
+        if la_4CH_data is not None and la_4CH_data.ndim == 3:
+            imgs[3].set_data(la_4CH_data[slice_idx])
+        fig.canvas.draw_idle()
+
+    # Store the image handles for updating
+    imgs = []
+
+    # Short-Axis View
+    if sa_data is None:
+        print("Failed to generate short-axis view.")
+        axes[0, 0].axis('off')
+        imgs.append(None)
+    else:
+        img = axes[0, 0].imshow(sa_data[0], cmap='gray', origin='lower') if sa_data.ndim == 3 else axes[0, 0].imshow(sa_data, cmap='gray', origin='lower')
+        axes[0, 0].set_title("Short-Axis View")
+        axes[0, 0].axis('off')
+        imgs.append(img)
+
+    # 2-Chamber View
+    if la_2CH_data is None:
+        print("Failed to generate 2-chamber view.")
+        axes[0, 1].axis('off')
+        imgs.append(None)
+    else:
+        img = axes[0, 1].imshow(la_2CH_data[0], cmap='gray', origin='lower') if la_2CH_data.ndim == 3 else axes[0, 1].imshow(la_2CH_data, cmap='gray', origin='lower')
+        axes[0, 1].set_title("2-Chamber View")
+        axes[0, 1].axis('off')
+        imgs.append(img)
+
+    # 3-Chamber View
+    if la_3CH_data is None:
+        print("Failed to generate 3-chamber view.")
+        axes[1, 0].axis('off')
+        imgs.append(None)
+    else:
+        img = axes[1, 0].imshow(la_3CH_data[0], cmap='gray', origin='lower') if la_3CH_data.ndim == 3 else axes[1, 0].imshow(la_3CH_data, cmap='gray', origin='lower')
+        axes[1, 0].set_title("3-Chamber View")
+        axes[1, 0].axis('off')
+        imgs.append(img)
+
+    # 4-Chamber View
+    if la_4CH_data is None:
+        print("Failed to generate 4-chamber view.")
+        axes[1, 1].axis('off')
+        imgs.append(None)
+    else:
+        img = axes[1, 1].imshow(la_4CH_data[0], cmap='gray', origin='lower') if la_4CH_data.ndim == 3 else axes[1, 1].imshow(la_4CH_data, cmap='gray', origin='lower')
+        axes[1, 1].set_title("4-Chamber View")
+        axes[1, 1].axis('off')
+        imgs.append(img)
+
+    # Add a single slider for all views
+    ax_slider = plt.axes([0.2, 0.02, 0.6, 0.03])
+    slider = Slider(ax_slider, 'Slice Depth', 0, max_slices - 1, valinit=0, valstep=1)
+
+    def update(val):
+        slice_idx = int(slider.val)
+        display_slice(slice_idx)
+
+    slider.on_changed(update)
+
+    plt.tight_layout()
     plt.show()
