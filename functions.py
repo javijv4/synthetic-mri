@@ -284,7 +284,7 @@ def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=10
     for sliceIndex in range(number_of_slices): 
         slice_origin = lv_centroid + (sliceIndex - number_of_slices // 2) * out_of_plane_spacing * lv_long_axis # print(f"Slice {sliceIndex} Origin: {slice_origin}")
         xyz, slice_affine = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)                      # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         slice_affines.append(slice_affine)
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
@@ -307,7 +307,7 @@ def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=10
         plt.axis('off')
         plt.show()
 
-    return slices_3d, slice_affines
+    return slices_3d, slice_affines[0]
 
 def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0, 
                         out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
@@ -324,7 +324,7 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
     for slice_index in range(number_of_slices):
         slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * v  # print(f"Slice {sliceIndex} Origin: {slice_origin}")
         xyz, slice_affine = grid_in_plane(slice_origin, v, spacing, plane_size) # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
         slice_affines.append(slice_affine)
@@ -338,7 +338,7 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
         plt.axis('off')
         plt.show()
 
-    return slices_3d, slice_affine
+    return slices_3d, slice_affines[0]
 
 
 def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
@@ -377,7 +377,7 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
     for slice_index in range(number_of_slices):
         slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * x
         xyz, slice_affine = grid_in_plane(slice_origin, x, spacing, plane_size)
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
         slice_affines.append(slice_affine)
@@ -391,7 +391,7 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
         plt.axis('off')
         plt.show()
 
-    return slice_data, slice_affines
+    return slices_3d, slice_affines[0]
 
 def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing = 8.0, number_of_slices = 13, plotOn = True):
     label_data, affine, _ = readFromNIFTI(seg_file)
@@ -433,7 +433,7 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
         # Adjust origin for each slice
         slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
         xyz, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
         slice_affines.append(slice_affine)
@@ -447,7 +447,7 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
         plt.axis('off')
         plt.show()
 
-    return slices_3d, slice_affines
+    return slices_3d, slice_affines[0]
 
 
 def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn=True):
@@ -562,3 +562,52 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
 
     plt.tight_layout()
     plt.show()
+
+
+import plotly.graph_objects as go
+import plotly.io as pio
+
+
+def show_point_cloud(points, fig=None, color=None, size=10, cmap='Viridis',
+                     opacity=1, marker_symbol='circle', label=None, showscale=False,
+                     cmin = None, cmax = None):
+    if fig is None:
+        fig = go.Figure()
+    if len(points.shape) == 1:
+        points = points[None]
+    fig.add_scatter3d(x=points[:,0], y=points[:,1], z=points[:,2], mode='markers',
+                      marker=dict(
+                                    color=color,
+                                    size=size,
+                                    colorscale=cmap,
+                                    opacity=opacity,
+                                    symbol=marker_symbol,
+                                    showscale=showscale,
+                                    cmin = cmin,
+                                    cmax = cmax
+                                ),
+                      name = label
+        )
+    return fig
+
+
+def show_segmentations(data, affine, fig=None, background=False):
+    nlabels = np.unique(data)
+    nlabels = nlabels[nlabels != 0]
+
+    colors = {0: 'blue', 1: 'red', 2: 'green', 3: 'cyan',
+              4: 'grey', 5: 'yellow', 6: 'purple', 7: 'magenta',
+              8: 'aqua', 9: 'maroon', 10: 'olive', 11: 'lime'}
+    
+    if fig is None:
+        fig = go.Figure()
+    for i, label in enumerate(nlabels):
+        mask = data == label
+        ijk = np.vstack(np.where(mask)).T
+        xyz = nib.affines.apply_affine(affine, ijk)
+        show_point_cloud(xyz, fig=fig, opacity=0.9, color=colors[i], size=5)
+
+    if not background:
+        fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
+
+    return fig
