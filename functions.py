@@ -490,7 +490,7 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
     offsets = np.linspace(-plane_size / 2, plane_size / 2, num_slices)
 
     for offset in offsets:
-        slice_origin = lv_centroid + offset * lv_long_axis  # Adjust origin for each slice
+        slice_origin = lv_centroid + offset * lv_long_axis 
         xyz, slice_affine = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)
         slice_data = interpolate_image(xyz, label_data, affine)
         slice_data_list.append(slice_data)
@@ -507,12 +507,81 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
 
     # Update function for the slider
     def update(val):
-        slice_idx = int(slider.val)  # Get the current slider value
-        img.set_data(slice_data_list[slice_idx])  # Update the image data
+        slice_idx = int(slider.val)  
+        img.set_data(slice_data_list[slice_idx]) 
         fig.canvas.draw_idle()  
 
-    slider.on_changed(update)  # Connect the slider to the update function
+    slider.on_changed(update)  
 
+    plt.show()
+
+
+def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=None):
+    print("\nDisplaying all views...")
+    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+
+   # Short-Axis View
+    sliders = []
+
+    def add_slider(ax, data, title, slider_pos):
+        img = ax.imshow(data[0], cmap='gray', origin='lower')
+        ax.set_title(title)
+        ax.axis('off')
+
+        ax_slider = plt.axes(slider_pos)
+        slider = Slider(ax_slider, f'{title} Depth', 0, data.shape[0] - 1, valinit=0, valstep=1)
+        sliders.append(slider)
+
+        def update(val):
+            slice_idx = int(slider.val)
+            img.set_data(data[slice_idx])
+            fig.canvas.draw_idle()
+
+        slider.on_changed(update)
+
+    if sa_data is None:
+       print("Failed to generate short-axis view.")
+       axes[0, 0].axis('off')
+    else:
+        middle_index = sa_data.shape[0] // 2
+        axes[0, 0].imshow(sa_data[middle_index], cmap='gray', origin='lower')
+        axes[0, 0].set_title("Short-Axis View (Middle Slice)")
+        axes[0, 0].axis('off')
+
+   # 2-Chamber View
+    if la_2CH_data is None:
+       print("Failed to generate 2-chamber view.")
+       axes[0, 1].axis('off') 
+    else:
+        middle_index = la_2CH_data.shape[0] // 2
+        axes[0, 1].imshow(la_2CH_data[middle_index], cmap='gray', origin='lower')
+        axes[0, 1].set_title("Two-Chamber View (Middle Slice)")
+        axes[0, 1].axis('off')
+
+   # 3-Chamber View
+    if la_3CH_data is None:
+       print("Failed to generate 3-chamber view.")
+       axes[1, 0].axis('off')
+    else:
+        middle_index = la_3CH_data.shape[0] // 2
+        axes[1, 0].imshow(la_3CH_data[middle_index], cmap='gray', origin='lower')
+        axes[1, 0].set_title("Three-Chamber View (Middle Slice)")
+        axes[1, 0].axis('off')
+
+
+
+   # 4-Chamber View
+    if la_4CH_data is None:
+       print("Failed to generate 4-chamber view.")
+       axes[1, 1].axis('off')
+    else:
+        middle_index = la_4CH_data.shape[0] // 2
+        axes[1, 1].imshow(la_4CH_data[middle_index], cmap='gray', origin='lower')
+        axes[1, 1].set_title("Four-Chamber View (Middle Slice)")
+        axes[1, 1].axis('off')
+
+
+    plt.tight_layout()
     plt.show()
 
 
@@ -520,158 +589,82 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
 #     print("\nDisplaying all views...")
 #     fig, axes = plt.subplots(2, 2, figsize=(12, 12))
 
-#    # Short-Axis View
-#     sliders = []
+#     # Determine the maximum number of slices across all views
+#     max_slices = max(
+#         sa_data.shape[0] if sa_data is not None and sa_data.ndim == 3 else 0,
+#         la_2CH_data.shape[0] if la_2CH_data is not None and la_2CH_data.ndim == 3 else 0,
+#         la_3CH_data.shape[0] if la_3CH_data is not None and la_3CH_data.ndim == 3 else 0,
+#         la_4CH_data.shape[0] if la_4CH_data is not None and la_4CH_data.ndim == 3 else 0,
+#     )
 
-#     def add_slider(ax, data, title, slider_pos):
-#         img = ax.imshow(data[0], cmap='gray', origin='lower')
-#         ax.set_title(title)
-#         ax.axis('off')
+#     # Helper function to display a specific slice
+#     def display_slice(slice_idx):
+#         if sa_data is not None and sa_data.ndim == 3:
+#             imgs[0].set_data(sa_data[slice_idx])
+#         if la_2CH_data is not None and la_2CH_data.ndim == 3:
+#             imgs[1].set_data(la_2CH_data[slice_idx])
+#         if la_3CH_data is not None and la_3CH_data.ndim == 3:
+#             imgs[2].set_data(la_3CH_data[slice_idx])
+#         if la_4CH_data is not None and la_4CH_data.ndim == 3:
+#             imgs[3].set_data(la_4CH_data[slice_idx])
+#         fig.canvas.draw_idle()
 
-#         ax_slider = plt.axes(slider_pos)
-#         slider = Slider(ax_slider, f'{title} Depth', 0, data.shape[0] - 1, valinit=0, valstep=1)
-#         sliders.append(slider)
+#     # Store the image handles for updating
+#     imgs = []
 
-#         def update(val):
-#             slice_idx = int(slider.val)
-#             img.set_data(data[slice_idx])
-#             fig.canvas.draw_idle()
-
-#         slider.on_changed(update)
-
+#     # Short-Axis View
 #     if sa_data is None:
-#        print("Failed to generate short-axis view.")
-#        axes[0, 0].axis('off')
+#         print("Failed to generate short-axis view.")
+#         axes[0, 0].axis('off')
+#         imgs.append(None)
 #     else:
-#         # middle_index = sa_data.shape[0] // 2
-#         # axes[0, 0].imshow(sa_data[middle_index], cmap='gray', origin='lower')
-#         # montage = np.concatenate(sa_data, axis=1)
-#         # axes[0, 0].imshow(montage, cmap='gray', origin='lower')
-#         # axes[0, 0].set_title("Short-Axis View (All Slices)")
-#         # axes[0, 0].axis('off')
-#         if sa_data.ndim == 3:  # Interactive slider for 3D data
-#             add_slider(axes[0, 0], sa_data, "Short-Axis View", [0.1, 0.02, 0.3, 0.03])
+#         img = axes[0, 0].imshow(sa_data[0], cmap='gray', origin='lower') if sa_data.ndim == 3 else axes[0, 0].imshow(sa_data, cmap='gray', origin='lower')
+#         axes[0, 0].set_title("Short-Axis View")
+#         axes[0, 0].axis('off')
+#         imgs.append(img)
 
-
-#    # 2-Chamber View
+#     # 2-Chamber View
 #     if la_2CH_data is None:
-#        print("Failed to generate 2-chamber view.")
-#        axes[0, 1].axis('off') 
+#         print("Failed to generate 2-chamber view.")
+#         axes[0, 1].axis('off')
+#         imgs.append(None)
 #     else:
-#         if la_2CH_data.ndim == 3: 
-#             print("Displaying Two-Chamber View...")
-#             add_slider(axes[0, 1], la_2CH_data, "2-Chamber View", [0.6, 0.02, 0.3, 0.03])
+#         img = axes[0, 1].imshow(la_2CH_data[0], cmap='gray', origin='lower') if la_2CH_data.ndim == 3 else axes[0, 1].imshow(la_2CH_data, cmap='gray', origin='lower')
+#         axes[0, 1].set_title("2-Chamber View")
+#         axes[0, 1].axis('off')
+#         imgs.append(img)
 
-
-
-#    # 3-Chamber View
+#     # 3-Chamber View
 #     if la_3CH_data is None:
-#        print("Failed to generate 3-chamber view.")
-#        axes[1, 0].axis('off')
+#         print("Failed to generate 3-chamber view.")
+#         axes[1, 0].axis('off')
+#         imgs.append(None)
 #     else:
-#        if la_3CH_data.ndim == 3:
-#             print("Adding interactive slider for 3-Chamber View...")
-#             add_slider(axes[1, 0], la_3CH_data, "3-Chamber View", [0.1, 0.96, 0.3, 0.03])
+#         img = axes[1, 0].imshow(la_3CH_data[0], cmap='gray', origin='lower') if la_3CH_data.ndim == 3 else axes[1, 0].imshow(la_3CH_data, cmap='gray', origin='lower')
+#         axes[1, 0].set_title("3-Chamber View")
+#         axes[1, 0].axis('off')
+#         imgs.append(img)
 
-
-#    # 4-Chamber View
+#     # 4-Chamber View
 #     if la_4CH_data is None:
-#        print("Failed to generate 4-chamber view.")
-#        axes[1, 1].axis('off')
+#         print("Failed to generate 4-chamber view.")
+#         axes[1, 1].axis('off')
+#         imgs.append(None)
 #     else:
-#        if la_4CH_data.ndim == 3:
-#             print("Adding interactive slider for 4-Chamber View...")
-#             add_slider(axes[1, 1], la_4CH_data, "4-Chamber View", [0.6, 0.96, 0.3, 0.03])
+#         img = axes[1, 1].imshow(la_4CH_data[0], cmap='gray', origin='lower') if la_4CH_data.ndim == 3 else axes[1, 1].imshow(la_4CH_data, cmap='gray', origin='lower')
+#         axes[1, 1].set_title("4-Chamber View")
+#         axes[1, 1].axis('off')
+#         imgs.append(img)
 
+#     # Add a single slider for all views
+#     ax_slider = plt.axes([0.2, 0.02, 0.6, 0.03])
+#     slider = Slider(ax_slider, 'Slice Depth', 0, max_slices - 1, valinit=0, valstep=1)
+
+#     def update(val):
+#         slice_idx = int(slider.val)
+#         display_slice(slice_idx)
+
+#     slider.on_changed(update)
 
 #     plt.tight_layout()
 #     plt.show()
-
-
-import matplotlib.pyplot as plt
-from matplotlib.widgets import Slider
-import numpy as np
-
-def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=None):
-    print("\nDisplaying all views...")
-    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
-
-    # Determine the maximum number of slices across all views
-    max_slices = max(
-        sa_data.shape[0] if sa_data is not None and sa_data.ndim == 3 else 0,
-        la_2CH_data.shape[0] if la_2CH_data is not None and la_2CH_data.ndim == 3 else 0,
-        la_3CH_data.shape[0] if la_3CH_data is not None and la_3CH_data.ndim == 3 else 0,
-        la_4CH_data.shape[0] if la_4CH_data is not None and la_4CH_data.ndim == 3 else 0,
-    )
-
-    # Helper function to display a specific slice
-    def display_slice(slice_idx):
-        if sa_data is not None and sa_data.ndim == 3:
-            imgs[0].set_data(sa_data[slice_idx])
-        if la_2CH_data is not None and la_2CH_data.ndim == 3:
-            imgs[1].set_data(la_2CH_data[slice_idx])
-        if la_3CH_data is not None and la_3CH_data.ndim == 3:
-            imgs[2].set_data(la_3CH_data[slice_idx])
-        if la_4CH_data is not None and la_4CH_data.ndim == 3:
-            imgs[3].set_data(la_4CH_data[slice_idx])
-        fig.canvas.draw_idle()
-
-    # Store the image handles for updating
-    imgs = []
-
-    # Short-Axis View
-    if sa_data is None:
-        print("Failed to generate short-axis view.")
-        axes[0, 0].axis('off')
-        imgs.append(None)
-    else:
-        img = axes[0, 0].imshow(sa_data[0], cmap='gray', origin='lower') if sa_data.ndim == 3 else axes[0, 0].imshow(sa_data, cmap='gray', origin='lower')
-        axes[0, 0].set_title("Short-Axis View")
-        axes[0, 0].axis('off')
-        imgs.append(img)
-
-    # 2-Chamber View
-    if la_2CH_data is None:
-        print("Failed to generate 2-chamber view.")
-        axes[0, 1].axis('off')
-        imgs.append(None)
-    else:
-        img = axes[0, 1].imshow(la_2CH_data[0], cmap='gray', origin='lower') if la_2CH_data.ndim == 3 else axes[0, 1].imshow(la_2CH_data, cmap='gray', origin='lower')
-        axes[0, 1].set_title("2-Chamber View")
-        axes[0, 1].axis('off')
-        imgs.append(img)
-
-    # 3-Chamber View
-    if la_3CH_data is None:
-        print("Failed to generate 3-chamber view.")
-        axes[1, 0].axis('off')
-        imgs.append(None)
-    else:
-        img = axes[1, 0].imshow(la_3CH_data[0], cmap='gray', origin='lower') if la_3CH_data.ndim == 3 else axes[1, 0].imshow(la_3CH_data, cmap='gray', origin='lower')
-        axes[1, 0].set_title("3-Chamber View")
-        axes[1, 0].axis('off')
-        imgs.append(img)
-
-    # 4-Chamber View
-    if la_4CH_data is None:
-        print("Failed to generate 4-chamber view.")
-        axes[1, 1].axis('off')
-        imgs.append(None)
-    else:
-        img = axes[1, 1].imshow(la_4CH_data[0], cmap='gray', origin='lower') if la_4CH_data.ndim == 3 else axes[1, 1].imshow(la_4CH_data, cmap='gray', origin='lower')
-        axes[1, 1].set_title("4-Chamber View")
-        axes[1, 1].axis('off')
-        imgs.append(img)
-
-    # Add a single slider for all views
-    ax_slider = plt.axes([0.2, 0.02, 0.6, 0.03])
-    slider = Slider(ax_slider, 'Slice Depth', 0, max_slices - 1, valinit=0, valstep=1)
-
-    def update(val):
-        slice_idx = int(slider.val)
-        display_slice(slice_idx)
-
-    slider.on_changed(update)
-
-    plt.tight_layout()
-    plt.show()
