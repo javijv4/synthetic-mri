@@ -44,6 +44,40 @@ def calculate_spatial_information(label_data, affine, LV_LABEL=1, RV_LABEL=3, AO
     return spatial_info
 
 
+def get_view_normal_origin(spatial_info):
+    # SA
+    sa_normal = spatial_info["LV Long Axis"]
+    sa_origin = spatial_info["LV Centroid"]
+    sa_normal_origin = sa_normal, sa_origin
+
+    # 2CH
+    v = spatial_info["RV Centroid"] - spatial_info["LV Centroid"]
+    v = v / np.linalg.norm(v)
+    la_2ch_normal = v
+    la_2ch_origin = spatial_info["LV Centroid"]
+    la_2ch_normal_origin = la_2ch_normal, la_2ch_origin
+
+    # 3CH
+    v = spatial_info["LV Centroid"] - spatial_info["Aorta Centroid"]
+    v = v / np.linalg.norm(v)
+    normal = np.cross(v, spatial_info["LV Long Axis"])
+    normal = normal / np.linalg.norm(normal)
+    la_3ch_normal = normal
+    la_3ch_origin = spatial_info["LV Centroid"]
+    la_3ch_normal_origin = la_3ch_normal, la_3ch_origin
+
+    # 4CH
+    v = spatial_info["RV Centroid"] - spatial_info["LV Centroid"]
+    v = v / np.linalg.norm(v)
+    x = np.cross(spatial_info["LV Long Axis"], v)
+    x = x / np.linalg.norm(x)
+    la_4ch_normal = x
+    la_4ch_origin = spatial_info["LV Centroid"]
+    la_4ch_normal_origin = la_4ch_normal, la_4ch_origin
+
+    return sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin
+
+
 def grid_in_plane(origin, normal, spacing, plane_size):
     """
     Generates a grid of points in a plane defined by an origin and a normal vector.
@@ -258,6 +292,7 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
     # affine[:3, :3] extracts the top-left 3x3 submatrix of the affine matrix.
 # This submatrix represents the rotation and scaling but not the translation.
     long_axis_real = affine[:3, :3] @ long_axis_voxel
+    long_axis_real = long_axis_real / np.linalg.norm(long_axis_real)
     return long_axis_real
 
 
@@ -278,7 +313,7 @@ def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=10
     for sliceIndex in range(number_of_slices): 
         slice_origin = lv_centroid + (sliceIndex - number_of_slices // 2) * out_of_plane_spacing * lv_long_axis # print(f"Slice {sliceIndex} Origin: {slice_origin}")
         xyz, slice_affine = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)                      # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         # slice_affine[:3, 3] = slice_origin
         slice_affines.append(slice_affine)
         slice_data = interpolate_image(xyz, label_data, affine)
@@ -302,7 +337,7 @@ def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=10
         plt.axis('off')
         plt.show()
 
-    return slices_3d, slice_affines
+    # return slices_3d, slice_affines
     return slices_3d, slice_affines[0]
 
 def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0, 
@@ -320,7 +355,7 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
     for slice_index in range(number_of_slices):
         slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * v  # print(f"Slice {sliceIndex} Origin: {slice_origin}")
         xyz, slice_affine = grid_in_plane(slice_origin, v, spacing, plane_size) # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         # slice_affine[:3, 3] = slice_origin
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
@@ -335,7 +370,7 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
         plt.axis('off')
         plt.show()
 
-    return slices_3d, slice_affine
+    # return slices_3d, slice_affine
     return slices_3d, slice_affines[0]
 
 
@@ -375,7 +410,7 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
     for slice_index in range(number_of_slices):
         slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * x
         xyz, slice_affine = grid_in_plane(slice_origin, x, spacing, plane_size)
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         # slice_affine[:3, 3] = slice_origin
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
@@ -390,7 +425,7 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
         plt.axis('off')
         plt.show()
 
-    return slice_data, slice_affines
+    # return slice_data, slice_affines
     return slices_3d, slice_affines[0]
 
 def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing = 8.0, number_of_slices = 13, plotOn = True):
@@ -433,7 +468,7 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
         # Adjust origin for each slice
         slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
         xyz, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
-        slice_affine[:3, 3] = slice_origin
+        # slice_affine[:3, 3] = slice_origin
         # slice_affine[:3, 3] = slice_origin
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
@@ -448,7 +483,7 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
         plt.axis('off')
         plt.show()
 
-    return slices_3d, slice_affines
+    # return slices_3d, slice_affines
     return slices_3d, slice_affines[0]
 
 
@@ -564,6 +599,8 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
 
     plt.tight_layout()
     plt.show()
+
+
 import plotly.graph_objects as go
 import plotly.io as pio
 def show_point_cloud(points, fig=None, color=None, size=10, cmap='Viridis',

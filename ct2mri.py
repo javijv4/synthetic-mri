@@ -84,7 +84,8 @@ fn.save_Nifti(la_3CH_data, la_3CH_affine, out_path + 'la_3CH.nii.gz')
 fn.save_Nifti(la_4CH_data, la_4CH_affine, out_path + 'la_4CH.nii.gz')
 
 # Plot segmentation using plotly
-fig = fn.show_segmentations(la_2CH_data, la_2CH_affine)
+fig = fn.show_segmentations(sa_data, saAffineData)
+fig = fn.show_segmentations(la_2CH_data, la_2CH_affine, fig=fig)
 fig = fn.show_segmentations(la_3CH_data, la_3CH_affine, fig=fig)
 fig = fn.show_segmentations(la_4CH_data, la_4CH_affine, fig=fig)
 fig.show()
