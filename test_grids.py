@@ -20,6 +20,7 @@ labels = {'LV': 1, 'RV': 3, 'Aorta': 6}
 inplane_spacing = 10.0       # Use this when generating the grid
 out_of_plane_spacing = 8.0
 number_of_slices = 13
+
 # Create output directory
 if not os.path.exists(out_path):
     os.makedirs(out_path, exists=True)
@@ -41,6 +42,7 @@ sa_grid, sa_affine = fn.grid_in_plane(sa_normal_origin[1], sa_normal_origin[0], 
 la_2ch_grid, la_2ch_affine = fn.grid_in_plane(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size)
 la_3ch_grid, la_3ch_affine = fn.grid_in_plane(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size)
 la_4ch_grid, la_4ch_affine = fn.grid_in_plane(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size)
+print(sa_affine)
 
 # Make ij grid
 i = np.arange(int(np.sqrt(len(sa_grid))))

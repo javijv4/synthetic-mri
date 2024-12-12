@@ -6,8 +6,6 @@ import monai.transforms as mt
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-
-
 def readFromNIFTI(segName, correct_ras=True):
     ''' Helper function used by masks2ContoursSA() and masks2ContoursLA(). Returns (seg, transform, pixSpacing). '''
     # Load NIFTI image and its header.
@@ -149,53 +147,8 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
     return points, A
 
-def grid_in_plane2(origin, normal, spacing, plane_size):
-    # TODO: instead of the number of points, the function should receive the spacing between points
-    """
-    Generates a grid of points in a plane defined by an origin and a normal vector.
-    Note that the grid is centered at the origin and the points are spaced the same in both in-plane directions.
-    You want to make sure the grid is large enough to cover the entire image (plane_size argument).
-    Args:
-        origin (numpy.ndarray): A 3-element numpy array representing the coordinates of the origin point of the plane.
-        normal (numpy.ndarray): A 3-element numpy array representing the normal vector of the plane.
-        plane_size (float): The size of the plane in pixel units
-    Returns:
-        numpy.ndarray: A 2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
-    """
 
-    # IMPORTNAT CALC 3 REMINDERS:
-    # NORMAL VECTOR IS PERPENDICULAR TO A PLANE OR A SURFACE, and its used to define orientation of plane
-    # orthogonal vector check if two VECTORS are perpendicular to each other: if a dot product b = 0 they are orthogonal
-    # conver to normal unit vector using numpys built in functions
-    normal = normal / np.linalg.norm(normal)
-    if not np.allclose(normal, [1, 0, 0]):
-        u = np.cross(normal, [1, 0, 0])
-    else:
-        u = np.cross(normal, [0, 1, 0])
-    u = u / np.linalg.norm(u)
-    v = np.cross(normal, u)
-    v = v / np.linalg.norm(v)   # Normalizing vector
-    half_size = plane_size / 2     # Create grid points within the plane
-
-    #linespace generates sequence of of evenly spaced numbers of range
-    # creates planesize amount of evenly spaced values from -half_size to half_size
-    # creates a 1d array of evenly spaced points
-    npoints = int(np.ceil(plane_size / spacing))  # Calculate number of points to cover plane_size
-    lin_space = np.linspace(-half_size, half_size, npoints)
-
-    grid_x, grid_y = np.meshgrid(lin_space, lin_space)
-
-    # Compute 3D coordinates for each point on the
-    # creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
-    # grid x and y determine x and y cords while u and v orient cords in 3d space to essentially create grind
-    points = origin + grid_x[..., None] * u + grid_y[..., None] * v
-
-    #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
-    return points.reshape(len(lin_space) * len(lin_space), 3)
-    # return points
-
-
-def interpolate_image(xyz, data, ct_affine):
+def interpolate_image(xyz, data, data_affine):
     """
     Interpolates the given image data based on the provided coordinates.
     Args:
@@ -207,7 +160,7 @@ def interpolate_image(xyz, data, ct_affine):
     # create voxel coordinates based of real world cords, every ijk now corresponds to a position in ct_affine
     # A voxel coordinate refers to the position of a voxel (3D pixel) in the index space of a 3D image array, typically in integer units that specify its location along each axis in the array.
     #https://nipy.org/nibabel/reference/nibabel.affines.html#nibabel.affines.apply_affine
-    ijk = nib.affines.apply_affine(np.linalg.inv(ct_affine), xyz)
+    ijk = nib.affines.apply_affine(np.linalg.inv(data_affine), xyz)
     # round everything to integers for floating point number, indexing array doesnt take floating point
     ijk = np.round(ijk).astype(int)
 
@@ -222,17 +175,37 @@ def interpolate_image(xyz, data, ct_affine):
     N = int(np.sqrt(len(xyz)))
     return interpolated_data.reshape(N,N)
 
-def probe_CT_label_image (xyz, data, ct_affine):
-    ijk = nib.affines.apply_affine(np.linalg.inv(ct_affine), xyz)
-    ijk = np.round(ijk).astype(int)
 
-    # Clip indices to stay within bounds of the data array
-    ijk[0] = np.clip(ijk[0], 0, data.shape[0] - 1)
-    ijk[1] = np.clip(ijk[1], 0, data.shape[1] - 1)
-    ijk[2] = np.clip(ijk[2], 0, data.shape[2] - 1)
-    return int(data[ijk[0], ijk[1], ijk[2]])
+def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False):
+    
+    # Generate data for all slices 
+    slice_affines = np.zeros((number_of_slices, 4, 4))
+    slice_datas = []
+    for slice_index in range(number_of_slices):
+        # Find the origin of the slice
+        slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
 
+        # Create grid an interpolate data
+        slice_grid, slice_affine = grid_in_plane(centroid, normal, spacing, plane_size)
+        slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
+        # Save in arrays
+        slice_affines[slice_index] = slice_affine
+        slice_datas.append(slice_data)
+
+    scan_data = np.dstack(slice_datas)    # (plane_size, plane_size, number_of_slices)
+
+    # Deal with multiple slices
+    if number_of_slices == 1:
+        scan_affine = slice_affines[0]
+    else:
+        raise NotImplementedError("Multiple slices not implemented yet")
+    
+
+    if plotOn:
+        plot_cardiac_view_slice(scan_data, number_of_slices, "2 Chamber View")
+
+    return scan_data, scan_affine
 
 
 def save_Nifti(data, affine, file_name):
@@ -264,7 +237,7 @@ def calculate_centroid(label_data, label_value, affine):
 def plot_cardiac_view_slice(slices_3d, number_of_slices, title=None):
     middle_index = number_of_slices // 2
     plt.figure(figsize=(6, 6))
-    plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
+    plt.imshow(slices_3d[:,:,middle_index], cmap='gray', origin='lower')
     
     if title:
         plt.title(title)
@@ -302,178 +275,6 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
     long_axis_real = long_axis_real / np.linalg.norm(long_axis_real)
     return long_axis_real
 
-def normalize_affines(slice_affines, reference_translation):
-    for affine in slice_affines:
-        affine[:3, 3] = reference_translation
-
-def generate_slices(centroid, slices, slice_affines,  label_data, affine, x, 
-                    number_of_slices=13, out_of_plane_spacing=8.0, 
-                    spacing=1.0, plane_size=100, reference_translation=None):
-    for slice_index in range(number_of_slices):
-        slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * x
-        xyz, slice_affine = grid_in_plane(slice_origin, x, spacing, plane_size)
-        slice_affines.append(slice_affine)
-        slice_data = interpolate_image(xyz, label_data, affine)
-        slices.append(slice_data)
-    if reference_translation is not None:
-        normalize_affines(slice_affines, reference_translation)
-
-"""  PLOTTING FUNCTIONS  """
-
-def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, 
-                    spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, 
-                    plotOn=False, reference_translation=None, output_file="short_axis.nii"):
-    if lv_centroid is None or lv_long_axis is None:
-        print("Invalid LV centroid or long axis.")
-        return None
-
-    slices = []
-    slice_affines = []
-    reference_translation = affine[:3, 3]
-    print("reference translation")
-    print(reference_translation)
-
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, lv_long_axis, 
-                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
-                    reference_translation=reference_translation)
-
-    slices_3d = np.stack(slices, axis=0)
-    # middle_affine = slice_affines[number_of_slices // 2]
-    # save_Nifti(slices_3d, middle_affine, output_file)
-
-    if plotOn:
-        plot_cardiac_view_slice(slices_3d, number_of_slices, "Short Axis View")
-
-    return slices_3d, slice_affines[0]
-
-def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, 
-                        spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, 
-                        plotOn=True, reference_translation=None):
-    if lv_centroid is None or rv_centroid is None:
-        print("Invalid LV or RV centroid.")
-        return None
-
-    slices = []
-    slice_affines = []
-    v = rv_centroid - lv_centroid
-    v = v / np.linalg.norm(v)
-
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, v, 
-                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
-                    reference_translation=reference_translation)
-
-    slices_3d = np.stack(slices, axis=0)
-
-    if plotOn:
-        plot_cardiac_view_slice(slices_3d, number_of_slices, "2 Chamber View")
-
-    return slices_3d, slice_affines[0]
-
-
-def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
-                       number_of_slices=13, plotOn=True):
-    label_data, affine, _ = readFromNIFTI(seg_file)
-    spatial_info = calculate_spatial_information(label_data, affine)
-
-    lv_centroid = spatial_info["LV Centroid"]
-    rv_centroid = spatial_info["RV Centroid"]
-    if lv_centroid is None or rv_centroid is None:
-        print("Could not compute LV or RV centroids.")
-        return None
-
-    reference_translation = affine[:3, 3]
-    return plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, 
-                               plane_size, spacing, out_of_plane_spacing, 
-                               number_of_slices, plotOn, reference_translation=reference_translation)
-
-
-def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, 
-                        plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
-                        number_of_slices=13, plotOn=True, reference_translation=None):
-    if lv_centroid is None or rv_centroid is None:
-        print("Invalid LV or RV centroid.")
-        return None
-
-    slices = []
-    slice_affines = []
-    v = rv_centroid - lv_centroid
-    v = v / np.linalg.norm(v)
-    x = np.cross(lv_long_axis, v)
-    x = x / np.linalg.norm(x)
-
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, x, 
-                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
-                    reference_translation=reference_translation)
-
-    slices_3d = np.stack(slices, axis=0)
-
-    if plotOn:
-        plot_cardiac_view_slice(slices_3d, number_of_slices, "4 Chamber View")
-
-    return slices_3d, slice_affines[0]
-
-
-def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
-                       number_of_slices=13, plotOn=True):
-    label_data, affine, _ = readFromNIFTI(seg_file)
-    spatial_info = calculate_spatial_information(label_data, affine)
-
-    lv_centroid = spatial_info["LV Centroid"]
-    rv_centroid = spatial_info["RV Centroid"]
-    lv_long_axis = spatial_info["LV Long Axis"]
-    if lv_centroid is None or rv_centroid is None:
-        print("Could not compute LV or RV centroids.")
-        return None
-
-    reference_translation = affine[:3, 3]
-    return plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, 
-                               plane_size, spacing, out_of_plane_spacing, 
-                               number_of_slices, plotOn, reference_translation=reference_translation)
-
-
-def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, 
-                        plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
-                        number_of_slices=13, plotOn=True, reference_translation=None):
-    if lv_centroid is None or aorta_centroid is None:
-        print("Invalid LV or Aorta centroid.")
-        return None
-
-    slices = []
-    slice_affines = []
-    v = lv_centroid - aorta_centroid
-    v = v / np.linalg.norm(v)
-    normal = np.cross(v, lv_long_axis)
-    normal = normal / np.linalg.norm(normal)
-
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, normal, 
-                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
-                    reference_translation=reference_translation)
-
-    slices_3d = np.stack(slices, axis=0)
-
-    if plotOn:
-        plot_cardiac_view_slice(slices_3d, number_of_slices, "3 Chamber View")
-
-    return slices_3d, slice_affines[0]
-
-
-def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
-                       number_of_slices=13, plotOn=True):
-    label_data, affine, _ = readFromNIFTI(seg_file)
-    spatial_info = calculate_spatial_information(label_data, affine)
-
-    lv_centroid = spatial_info["LV Centroid"]
-    aorta_centroid = spatial_info["Aorta Centroid"]
-    lv_long_axis = spatial_info["LV Long Axis"]
-    if lv_centroid is None or aorta_centroid is None:
-        print("Could not compute LV or Aorta centroids.")
-        return None
-
-    reference_translation = affine[:3, 3]
-    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, 
-                               plane_size, spacing, out_of_plane_spacing, 
-                               number_of_slices, plotOn, reference_translation=reference_translation)
-
 
 
 def apply_misalignment(origin, normal, misalignment_level=0.0):
@@ -489,6 +290,9 @@ def apply_misalignment(origin, normal, misalignment_level=0.0):
         normal = normal / np.linalg.norm(normal)
 
     return origin, normal
+
+
+"""  PLOTTING FUNCTIONS  """
 
 #  Trying to add a slider that controls the depth of the view being displayed using Matplotlib Slider
 def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=10):
@@ -530,8 +334,8 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
        print("Failed to generate short-axis view.")
        axes[0, 0].axis('off')
     else:
-        middle_index = sa_data.shape[0] // 2
-        axes[0, 0].imshow(sa_data[middle_index], cmap='gray', origin='lower')
+        middle_index = sa_data.shape[-1] // 2
+        axes[0, 0].imshow(sa_data[:,:,middle_index], cmap='gray', origin='lower')
         axes[0, 0].set_title("Short-Axis View (Middle Slice)")
         axes[0, 0].axis('off')
 
@@ -540,8 +344,8 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
        print("Failed to generate 2-chamber view.")
        axes[0, 1].axis('off') 
     else:
-        middle_index = la_2CH_data.shape[0] // 2
-        axes[0, 1].imshow(la_2CH_data[middle_index], cmap='gray', origin='lower')
+        middle_index = la_2CH_data.shape[-1] // 2
+        axes[0, 1].imshow(la_2CH_data[:,:,middle_index], cmap='gray', origin='lower')
         axes[0, 1].set_title("Two-Chamber View (Middle Slice)")
         axes[0, 1].axis('off')
 
@@ -550,8 +354,8 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
        print("Failed to generate 3-chamber view.")
        axes[1, 0].axis('off')
     else:
-        middle_index = la_3CH_data.shape[0] // 2
-        axes[1, 0].imshow(la_3CH_data[middle_index], cmap='gray', origin='lower')
+        middle_index = la_3CH_data.shape[-1] // 2
+        axes[1, 0].imshow(la_3CH_data[:,:,middle_index], cmap='gray', origin='lower')
         axes[1, 0].set_title("Three-Chamber View (Middle Slice)")
         axes[1, 0].axis('off')
 
@@ -560,8 +364,8 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
        print("Failed to generate 4-chamber view.")
        axes[1, 1].axis('off')
     else:
-        middle_index = la_4CH_data.shape[0] // 2
-        axes[1, 1].imshow(la_4CH_data[middle_index], cmap='gray', origin='lower')
+        middle_index = la_4CH_data.shape[-1] // 2
+        axes[1, 1].imshow(la_4CH_data[:,:,middle_index], cmap='gray', origin='lower')
         axes[1, 1].set_title("Four-Chamber View (Middle Slice)")
         axes[1, 1].axis('off')
     plt.tight_layout()
@@ -605,12 +409,10 @@ def show_segmentations(data, affine, fig=None, background=False):
     for i, label in enumerate(nlabels):
         mask = data == label
         ijk = np.vstack(np.where(mask)).T
+        print(ijk)
         xyz = nib.affines.apply_affine(affine, ijk)
         show_point_cloud(xyz, fig=fig, opacity=0.9, color=colors[i], size=5)
     if not background:
         fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
     return fig
 
-
-# fix everything so it works with only one slice and it shud stack 
-# then fix slicing so it works for not ust once slice 
