@@ -215,20 +215,11 @@ def interpolate_image(xyz, data, ct_affine):
     ijk[:, 0] = np.clip(ijk[:, 0], 0, data.shape[0] - 1)
     ijk[:, 1] = np.clip(ijk[:, 1], 0, data.shape[1] - 1)
     ijk[:, 2] = np.clip(ijk[:, 2], 0, data.shape[2] - 1)
-
-    # Sample data at the nearest indices
-    # ijk[:, 0] grabs first column, ijk[:, 1] grabs second column, ijk[:, 2] grabs third column,
-    # first col is the x, 2nd is y
     # effectively create three arrays of cords which is x,y,z of all points we want to sample
     interpolated_data = data[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
     # print("Transformed ijk indices:", ijk[:10])
 
-    # Reshape to a 2D grid so we can use in imshow()
     N = int(np.sqrt(len(xyz)))
-    # trying to flip the y axis
-    # slice_data = interpolated_data.reshape(N, N)
-    # slice_data = np.flipud(slice_data)  # Flip along the y-axis
-    # return slice_data
     return interpolated_data.reshape(N,N)
 
 def probe_CT_label_image (xyz, data, ct_affine):
@@ -240,6 +231,9 @@ def probe_CT_label_image (xyz, data, ct_affine):
     ijk[1] = np.clip(ijk[1], 0, data.shape[1] - 1)
     ijk[2] = np.clip(ijk[2], 0, data.shape[2] - 1)
     return int(data[ijk[0], ijk[1], ijk[2]])
+
+
+
 
 def save_Nifti(data, affine, file_name):
     nifti_img = nib.Nifti1Image(data, affine)
@@ -266,6 +260,19 @@ def calculate_centroid(label_data, label_value, affine):
     # Convert to real-world coordinates using the affine matrix
     centroid_real = nib.affines.apply_affine(affine, centroid_voxel)
     return centroid_real
+
+def plot_cardiac_view_slice(slices_3d, number_of_slices, title=None):
+    middle_index = number_of_slices // 2
+    plt.figure(figsize=(6, 6))
+    plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
+    
+    if title:
+        plt.title(title)
+    else:
+        plt.title(f"Middle Slice (Slice {middle_index + 1})")
+    
+    plt.axis('off')
+    plt.show()
 
 def calculate_lv_long_axis(label_data, lv_label, affine):
     """
@@ -295,11 +302,20 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
     long_axis_real = long_axis_real / np.linalg.norm(long_axis_real)
     return long_axis_real
 
+def generate_slices(centroid, slices, slice_affines,  label_data, affine, x, 
+                    number_of_slices=13, out_of_plane_spacing=8.0, 
+                    spacing=1.0, plane_size=100):
+    for slice_index in range(number_of_slices):
+        slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * x
+        xyz, slice_affine = grid_in_plane(slice_origin, x, spacing, plane_size)
+        slice_affines.append(slice_affine)
+        slice_data = interpolate_image(xyz, label_data, affine)
+        slices.append(slice_data)
 
 """  PLOTTING FUNCTIONS  """
 
 def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0,
-                    out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True, output_file="short_axis.nii"):
+                    out_of_plane_spacing=8.0, number_of_slices=13, plotOn = False, output_file="short_axis.nii"):
     # TODO: make number_of_slices spaced out_of_plane_spacing and return a 3D array. Note that the affine matrix should be the same for all slices.
     # However, the grid_in_plane function will return an affine with a different translation vector for each slice.
     # You will need to modify the affine such that it can transform the 3D array into the correct position.
@@ -310,32 +326,24 @@ def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=10
     slices = []
     slice_affines = []
 
-    for sliceIndex in range(number_of_slices): 
-        slice_origin = lv_centroid + (sliceIndex - number_of_slices // 2) * out_of_plane_spacing * lv_long_axis # print(f"Slice {sliceIndex} Origin: {slice_origin}")
-        xyz, slice_affine = grid_in_plane(slice_origin, lv_long_axis, spacing, plane_size)                      # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
-        # slice_affine[:3, 3] = slice_origin
-        # slice_affine[:3, 3] = slice_origin
-        slice_affines.append(slice_affine)
-        slice_data = interpolate_image(xyz, label_data, affine)
-        slices.append(slice_data)
+
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, lv_long_axis,
+                    number_of_slices, out_of_plane_spacing, 
+                    spacing, plane_size)
 
     slices_3d = np.stack(slices, axis=0)
     middle_affine = slice_affines[number_of_slices // 2]
     unified_affine = affine.copy()
     unified_affine[:3, :3] = middle_affine[:3, :3]
     unified_affine[:3, 3] = middle_affine[:3, 3]
-
+    reference_translation = affine[:3, 3]
+    unified_affine[:3, 3] = reference_translation 
     # Save as a NIfTI file
     nifti_img = nib.Nifti1Image(slices_3d, unified_affine)
     nib.save(nifti_img, output_file)
 
     if plotOn:
-        middle_index = number_of_slices // 2
-        plt.figure(figsize=(6, 6))
-        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
-        plt.title(f"Middle Slice (Slice {middle_index + 1})")
-        plt.axis('off')
-        plt.show()
+        plot_cardiac_view_slice(slices_3d, number_of_slices, "Short Axis View")
 
     # return slices_3d, slice_affines
     return slices_3d, slice_affines[0]
@@ -352,23 +360,13 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
     v = rv_centroid - lv_centroid
     v = v / np.linalg.norm(v)
 
-    for slice_index in range(number_of_slices):
-        slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * v  # print(f"Slice {sliceIndex} Origin: {slice_origin}")
-        xyz, slice_affine = grid_in_plane(slice_origin, v, spacing, plane_size) # print(f"Slice {sliceIndex}: xyz Grid = {xyz[:5]}") 
-        # slice_affine[:3, 3] = slice_origin
-        # slice_affine[:3, 3] = slice_origin
-        slice_data = interpolate_image(xyz, label_data, affine)
-        slices.append(slice_data)
-        slice_affines.append(slice_affine)
-    slices_3d = np.stack(slices, axis=0)
 
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, v,
+            number_of_slices, out_of_plane_spacing, 
+            spacing, plane_size)
+    slices_3d = np.stack(slices, axis=0)
     if plotOn:
-        middle_index = number_of_slices // 2
-        plt.figure(figsize=(6, 6))
-        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
-        plt.title(f"Middle Slice (Slice {middle_index + 1})")
-        plt.axis('off')
-        plt.show()
+        plot_cardiac_view_slice(slices_3d, number_of_slices, "2 chamber plot")
 
     # return slices_3d, slice_affine
     return slices_3d, slice_affines[0]
@@ -407,23 +405,12 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
     x = np.cross(lv_long_axis, v)
     x = x / np.linalg.norm(x)
 
-    for slice_index in range(number_of_slices):
-        slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * x
-        xyz, slice_affine = grid_in_plane(slice_origin, x, spacing, plane_size)
-        # slice_affine[:3, 3] = slice_origin
-        # slice_affine[:3, 3] = slice_origin
-        slice_data = interpolate_image(xyz, label_data, affine)
-        slices.append(slice_data)
-        slice_affines.append(slice_affine)
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, x,
+            number_of_slices, out_of_plane_spacing, 
+            spacing, plane_size)
     slices_3d = np.stack(slices, axis=0)
-
     if plotOn:
-        middle_index = number_of_slices // 2
-        plt.figure(figsize=(6, 6))
-        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
-        plt.title(f"Middle Slice (Slice {middle_index + 1})")
-        plt.axis('off')
-        plt.show()
+        plot_cardiac_view_slice(slices_3d, number_of_slices, "4 Chamber View")
 
     # return slice_data, slice_affines
     return slices_3d, slice_affines[0]
@@ -456,7 +443,6 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
     if lv_centroid is None or aorta_centroid is None:
         print("Invalid LV or Aorta centroid.")
         return None, None
-
     slices = []
     slice_affines = []
     v = lv_centroid - aorta_centroid
@@ -464,24 +450,13 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
     normal = np.cross(v, lv_long_axis)
     normal = normal / np.linalg.norm(normal)
 
-    for slice_index in range(number_of_slices):
-        # Adjust origin for each slice
-        slice_origin = lv_centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
-        xyz, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
-        # slice_affine[:3, 3] = slice_origin
-        # slice_affine[:3, 3] = slice_origin
-        slice_data = interpolate_image(xyz, label_data, affine)
-        slices.append(slice_data)
-        slice_affines.append(slice_affine)
-    slices_3d = np.stack(slices, axis=0)
 
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, normal,
+            number_of_slices, out_of_plane_spacing, 
+            spacing, plane_size)
+    slices_3d = np.stack(slices, axis=0)
     if plotOn:
-        middle_index = number_of_slices // 2
-        plt.figure(figsize=(6, 6))
-        plt.imshow(slices_3d[middle_index], cmap='gray', origin='lower')
-        plt.title(f"Middle Slice (Slice {middle_index + 1})")
-        plt.axis('off')
-        plt.show()
+        plot_cardiac_view_slice(slices_3d, number_of_slices, "Three Chamber View")
 
     # return slices_3d, slice_affines
     return slices_3d, slice_affines[0]
@@ -595,8 +570,6 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
         axes[1, 1].imshow(la_4CH_data[middle_index], cmap='gray', origin='lower')
         axes[1, 1].set_title("Four-Chamber View (Middle Slice)")
         axes[1, 1].axis('off')
-
-
     plt.tight_layout()
     plt.show()
 
@@ -643,3 +616,7 @@ def show_segmentations(data, affine, fig=None, background=False):
     if not background:
         fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
     return fig
+
+
+# fix everything so it works with only one slice and it shud stack 
+# then fix slicing so it works for not ust once slice 

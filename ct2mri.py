@@ -83,6 +83,33 @@ fn.save_Nifti(la_2CH_data, la_2CH_affine, out_path + 'la_2CH.nii.gz')
 fn.save_Nifti(la_3CH_data, la_3CH_affine, out_path + 'la_3CH.nii.gz')
 fn.save_Nifti(la_4CH_data, la_4CH_affine, out_path + 'la_4CH.nii.gz')
 
+
+print("Affine Matrices:")
+print("Short Axis Affine:", saAffineData)
+print("2CH Affine:", la_2CH_affine)
+print("3CH Affine:", la_3CH_affine)
+print("4CH Affine:", la_4CH_affine)
+
+origin_sa = saAffineData[:3, 3]
+origin_2CH = la_2CH_affine[:3, 3]
+origin_3CH = la_3CH_affine[:3, 3]
+origin_4CH = la_4CH_affine[:3, 3]
+
+print("Short Axis Origin:", origin_sa)
+print("2CH Origin:", origin_2CH)
+print("3CH Origin:", origin_3CH)
+print("4CH Origin:", origin_4CH)
+
+rot_scale_sa = saAffineData[:3, :3]
+rot_scale_2CH = la_2CH_affine[:3, :3]
+rot_scale_3CH = la_3CH_affine[:3, :3]
+rot_scale_4CH = la_4CH_affine[:3, :3]
+
+print("Short Axis Rotation and Scaling:\n", rot_scale_sa)
+print("2CH Rotation and Scaling:\n", rot_scale_2CH)
+print("3CH Rotation and Scaling:\n", rot_scale_3CH)
+print("4CH Rotation and Scaling:\n", rot_scale_4CH)
+
 # Plot segmentation using plotly
 fig = fn.show_segmentations(sa_data, saAffineData)
 fig = fn.show_segmentations(la_2CH_data, la_2CH_affine, fig=fig)
