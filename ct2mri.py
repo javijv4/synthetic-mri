@@ -25,7 +25,16 @@ if not os.path.exists(out_path):
     os.makedirs(out_path, exists=True)
 
 # Read CT image
-ct_data, ct_affine, pixdim = fn.readFromNIFTI('data/labels.nii.gz')
+ct_data, ct_affine, pixdim = fn.readFromNIFTI(ct_path)
+print("Original affine matrix from NIFTI file:")
+print(ct_affine)
+print("Affine translation vector:")
+print(ct_affine[:3, 3])
+
+img = nib.load(ct_path)
+print("Affine matrix in NIFTI file:")
+print(img.affine)
+
 size = ct_data.shape
 plane_size = size[0]
 
@@ -65,15 +74,15 @@ sa_data, saAffineData = fn.plot_short_axis(ct_data, ct_affine, lv_centroid, lv_l
                                 spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 
 print("\nGenerating 2-chamber view:")
-la_2CH_data, la_2CH_affine = fn.main_2chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
+# la_2CH_data, la_2CH_affine = fn.main_2chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 la_2CH_data, la_2CH_affine = fn.main_2chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, 1, plotOn = False)
 
 print("\nGenerating 3-chamber view:")
-la_3CH_data, la_3CH_affine = fn.main_3chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
+# la_3CH_data, la_3CH_affine = fn.main_3chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 la_3CH_data, la_3CH_affine = fn.main_3chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, 1, plotOn = False)
 
 print("\nGenerating 4-chamber view:")
-la_4CH_data, la_4CH_affine = fn.main_4chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
+# la_4CH_data, la_4CH_affine = fn.main_4chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn = False)
 la_4CH_data, la_4CH_affine = fn.main_4chamber_view(ct_path, plane_size, spacing, out_of_plane_spacing, 1, plotOn = False)
 fn.display_views(sa_data=sa_data, la_2CH_data=la_2CH_data, la_3CH_data=la_3CH_data, la_4CH_data=la_4CH_data)
 
@@ -89,6 +98,8 @@ print("Short Axis Affine:", saAffineData)
 print("2CH Affine:", la_2CH_affine)
 print("3CH Affine:", la_3CH_affine)
 print("4CH Affine:", la_4CH_affine)
+print()
+print()
 
 origin_sa = saAffineData[:3, 3]
 origin_2CH = la_2CH_affine[:3, 3]
@@ -99,6 +110,9 @@ print("Short Axis Origin:", origin_sa)
 print("2CH Origin:", origin_2CH)
 print("3CH Origin:", origin_3CH)
 print("4CH Origin:", origin_4CH)
+print()
+print()
+
 
 rot_scale_sa = saAffineData[:3, :3]
 rot_scale_2CH = la_2CH_affine[:3, :3]

@@ -302,55 +302,53 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
     long_axis_real = long_axis_real / np.linalg.norm(long_axis_real)
     return long_axis_real
 
+def normalize_affines(slice_affines, reference_translation):
+    for affine in slice_affines:
+        affine[:3, 3] = reference_translation
+
 def generate_slices(centroid, slices, slice_affines,  label_data, affine, x, 
                     number_of_slices=13, out_of_plane_spacing=8.0, 
-                    spacing=1.0, plane_size=100):
+                    spacing=1.0, plane_size=100, reference_translation=None):
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * x
         xyz, slice_affine = grid_in_plane(slice_origin, x, spacing, plane_size)
         slice_affines.append(slice_affine)
         slice_data = interpolate_image(xyz, label_data, affine)
         slices.append(slice_data)
+    if reference_translation is not None:
+        normalize_affines(slice_affines, reference_translation)
 
 """  PLOTTING FUNCTIONS  """
 
-def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0,
-                    out_of_plane_spacing=8.0, number_of_slices=13, plotOn = False, output_file="short_axis.nii"):
-    # TODO: make number_of_slices spaced out_of_plane_spacing and return a 3D array. Note that the affine matrix should be the same for all slices.
-    # However, the grid_in_plane function will return an affine with a different translation vector for each slice.
-    # You will need to modify the affine such that it can transform the 3D array into the correct position.
+def plot_short_axis(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, 
+                    spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, 
+                    plotOn=False, reference_translation=None, output_file="short_axis.nii"):
     if lv_centroid is None or lv_long_axis is None:
         print("Invalid LV centroid or long axis.")
         return None
 
     slices = []
     slice_affines = []
+    reference_translation = affine[:3, 3]
+    print("reference translation")
+    print(reference_translation)
 
-
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, lv_long_axis,
-                    number_of_slices, out_of_plane_spacing, 
-                    spacing, plane_size)
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, lv_long_axis, 
+                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
+                    reference_translation=reference_translation)
 
     slices_3d = np.stack(slices, axis=0)
-    middle_affine = slice_affines[number_of_slices // 2]
-    unified_affine = affine.copy()
-    unified_affine[:3, :3] = middle_affine[:3, :3]
-    unified_affine[:3, 3] = middle_affine[:3, 3]
-    reference_translation = affine[:3, 3]
-    unified_affine[:3, 3] = reference_translation 
-    # Save as a NIfTI file
-    nifti_img = nib.Nifti1Image(slices_3d, unified_affine)
-    nib.save(nifti_img, output_file)
+    # middle_affine = slice_affines[number_of_slices // 2]
+    # save_Nifti(slices_3d, middle_affine, output_file)
 
     if plotOn:
         plot_cardiac_view_slice(slices_3d, number_of_slices, "Short Axis View")
 
-    # return slices_3d, slice_affines
     return slices_3d, slice_affines[0]
 
-def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, spacing=1.0, 
-                        out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
-
+def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size=100, 
+                        spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, 
+                        plotOn=True, reference_translation=None):
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
         return None
@@ -360,43 +358,41 @@ def plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size
     v = rv_centroid - lv_centroid
     v = v / np.linalg.norm(v)
 
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, v, 
+                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
+                    reference_translation=reference_translation)
 
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, v,
-            number_of_slices, out_of_plane_spacing, 
-            spacing, plane_size)
     slices_3d = np.stack(slices, axis=0)
-    if plotOn:
-        plot_cardiac_view_slice(slices_3d, number_of_slices, "2 chamber plot")
 
-    # return slices_3d, slice_affine
+    if plotOn:
+        plot_cardiac_view_slice(slices_3d, number_of_slices, "2 Chamber View")
+
     return slices_3d, slice_affines[0]
 
 
-def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
+def main_2chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
+                       number_of_slices=13, plotOn=True):
     label_data, affine, _ = readFromNIFTI(seg_file)
-
     spatial_info = calculate_spatial_information(label_data, affine)
 
     lv_centroid = spatial_info["LV Centroid"]
     rv_centroid = spatial_info["RV Centroid"]
-
     if lv_centroid is None or rv_centroid is None:
         print("Could not compute LV or RV centroids.")
         return None
 
-    print("LV Centroid:", lv_centroid)
-    print("RV Centroid:", rv_centroid)
-
-    return plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn)
-
-
+    reference_translation = affine[:3, 3]
+    return plot_2_chamber_view(label_data, affine, lv_centroid, rv_centroid, 
+                               plane_size, spacing, out_of_plane_spacing, 
+                               number_of_slices, plotOn, reference_translation=reference_translation)
 
 
-def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size=100, spacing=1.0, 
-                         out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
+def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, 
+                        plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
+                        number_of_slices=13, plotOn=True, reference_translation=None):
     if lv_centroid is None or rv_centroid is None:
         print("Invalid LV or RV centroid.")
-        return None, None
+        return None
 
     slices = []
     slice_affines = []
@@ -405,44 +401,43 @@ def plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_ax
     x = np.cross(lv_long_axis, v)
     x = x / np.linalg.norm(x)
 
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, x,
-            number_of_slices, out_of_plane_spacing, 
-            spacing, plane_size)
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, x, 
+                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
+                    reference_translation=reference_translation)
+
     slices_3d = np.stack(slices, axis=0)
+
     if plotOn:
         plot_cardiac_view_slice(slices_3d, number_of_slices, "4 Chamber View")
 
-    # return slice_data, slice_affines
     return slices_3d, slice_affines[0]
 
-def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing = 8.0, number_of_slices = 13, plotOn = True):
-    label_data, affine, _ = readFromNIFTI(seg_file)
 
+def main_4chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
+                       number_of_slices=13, plotOn=True):
+    label_data, affine, _ = readFromNIFTI(seg_file)
     spatial_info = calculate_spatial_information(label_data, affine)
 
     lv_centroid = spatial_info["LV Centroid"]
     rv_centroid = spatial_info["RV Centroid"]
     lv_long_axis = spatial_info["LV Long Axis"]
-
     if lv_centroid is None or rv_centroid is None:
         print("Could not compute LV or RV centroids.")
         return None
 
-    print("LV Centroid:", lv_centroid)
-    print("RV Centroid:", rv_centroid)
-    print("LV Long Axis:", lv_long_axis)
+    reference_translation = affine[:3, 3]
+    return plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, 
+                               plane_size, spacing, out_of_plane_spacing, 
+                               number_of_slices, plotOn, reference_translation=reference_translation)
 
-    return plot_4_chamber_view(label_data, affine, lv_centroid, rv_centroid, lv_long_axis, plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn)
 
-
-def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, plane_size=100, 
-                        spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn = True):
-    """
-    Three chamber view. Have v be a vector between the aorta centroid and the LV centroid, get the normal of V, and the center be the LV centroid
-    """
+def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, 
+                        plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
+                        number_of_slices=13, plotOn=True, reference_translation=None):
     if lv_centroid is None or aorta_centroid is None:
         print("Invalid LV or Aorta centroid.")
-        return None, None
+        return None
+
     slices = []
     slice_affines = []
     v = lv_centroid - aorta_centroid
@@ -450,36 +445,35 @@ def plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long
     normal = np.cross(v, lv_long_axis)
     normal = normal / np.linalg.norm(normal)
 
+    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, normal, 
+                    number_of_slices, out_of_plane_spacing, spacing, plane_size, 
+                    reference_translation=reference_translation)
 
-    generate_slices(lv_centroid, slices, slice_affines, label_data, affine, normal,
-            number_of_slices, out_of_plane_spacing, 
-            spacing, plane_size)
     slices_3d = np.stack(slices, axis=0)
-    if plotOn:
-        plot_cardiac_view_slice(slices_3d, number_of_slices, "Three Chamber View")
 
-    # return slices_3d, slice_affines
+    if plotOn:
+        plot_cardiac_view_slice(slices_3d, number_of_slices, "3 Chamber View")
+
     return slices_3d, slice_affines[0]
 
 
-def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, number_of_slices=13, plotOn=True):
+def main_3chamber_view(seg_file, plane_size=100, spacing=1.0, out_of_plane_spacing=8.0, 
+                       number_of_slices=13, plotOn=True):
     label_data, affine, _ = readFromNIFTI(seg_file)
     spatial_info = calculate_spatial_information(label_data, affine)
 
     lv_centroid = spatial_info["LV Centroid"]
     aorta_centroid = spatial_info["Aorta Centroid"]
     lv_long_axis = spatial_info["LV Long Axis"]
-
     if lv_centroid is None or aorta_centroid is None:
         print("Could not compute LV or Aorta centroids.")
         return None
 
-    print("LV Centroid:", lv_centroid)
-    print("Aorta Centroid:", aorta_centroid)
+    reference_translation = affine[:3, 3]
+    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis, 
+                               plane_size, spacing, out_of_plane_spacing, 
+                               number_of_slices, plotOn, reference_translation=reference_translation)
 
-
-    return plot_3_chamber_view(label_data, affine, lv_centroid, aorta_centroid, lv_long_axis,
-                               plane_size, spacing, out_of_plane_spacing, number_of_slices, plotOn)
 
 
 def apply_misalignment(origin, normal, misalignment_level=0.0):
