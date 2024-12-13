@@ -76,7 +76,7 @@ def get_view_normal_origin(spatial_info):
     return sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin
 
 
-def grid_in_plane(origin, normal, spacing, plane_size):
+def grid_in_plane(origin, normal, spacing, plane_size, plane_vector=None):
     """
     Generates a grid of points in a plane defined by an origin and a normal vector.
     Note that the grid is centered at the origin and the points are spaced the same in both in-plane directions.
@@ -93,7 +93,11 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     # conver to normal unit vector using numpys built in functions
     normal = normal / np.linalg.norm(normal)
 
-    u = np.array([1, 0, 0]) if abs(normal[0]) < abs(normal[1]) else np.array([0, 1, 0])
+    # Use plane vector if provided, otherwise create one
+    if plane_vector is not None:
+        u = plane_vector / np.linalg.norm(plane_vector)
+    else:
+        u = np.array([1, 0, 0]) if abs(normal[0]) < abs(normal[1]) else np.array([0, 1, 0])
     v = np.cross(normal, u)
     v = v / np.linalg.norm(v)   # Normalizing vector
     u = np.cross(v, normal)
@@ -208,8 +212,11 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     return scan_data, scan_affine
 
 
-def save_Nifti(data, affine, file_name):
+def save_Nifti(data, affine, spacing, out_of_plane_spacing, file_name):
     nifti_img = nib.Nifti1Image(data, affine)
+    header = nifti_img.header
+    header.set_zooms((spacing, spacing, out_of_plane_spacing))
+    header.set_sform(affine)
     nib.save(nifti_img, file_name)
 
 def calculate_centroid(label_data, label_value, affine):
@@ -409,7 +416,6 @@ def show_segmentations(data, affine, fig=None, background=False):
     for i, label in enumerate(nlabels):
         mask = data == label
         ijk = np.vstack(np.where(mask)).T
-        print(ijk)
         xyz = nib.affines.apply_affine(affine, ijk)
         show_point_cloud(xyz, fig=fig, opacity=0.9, color=colors[i], size=5)
     if not background:
