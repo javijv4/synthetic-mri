@@ -180,34 +180,37 @@ def interpolate_image(xyz, data, data_affine):
     return interpolated_data.reshape(N,N)
 
 
-def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False):
+def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False, plane_vector=None):
     
     # Generate data for all slices 
-    slice_affines = np.zeros((number_of_slices, 4, 4))
+    # slice_affines = np.zeros((number_of_slices, 4, 4))
+    slice_affines = []
     slice_datas = []
     for slice_index in range(number_of_slices):
         # Find the origin of the slice
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
 
         # Create grid an interpolate data
-        slice_grid, slice_affine = grid_in_plane(centroid, normal, spacing, plane_size)
+        slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size, plane_vector)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         # Save in arrays
-        slice_affines[slice_index] = slice_affine
+        slice_affines.append(slice_affine)
         slice_datas.append(slice_data)
 
     scan_data = np.dstack(slice_datas)    # (plane_size, plane_size, number_of_slices)
 
-    # Deal with multiple slices
     if number_of_slices == 1:
         scan_affine = slice_affines[0]
     else:
-        raise NotImplementedError("Multiple slices not implemented yet")
-    
-
+        base_affine = slice_affines[0].copy()
+        slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3]) / out_of_plane_spacing
+        base_affine[:3, 2] = slice_direction[:3]
+        base_affine[:3, 3] = slice_affines[0][:3, 3]
+        scan_affine = base_affine
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "2 Chamber View")
+
 
     return scan_data, scan_affine
 
@@ -217,6 +220,11 @@ def save_Nifti(data, affine, spacing, out_of_plane_spacing, file_name):
     header = nifti_img.header
     header.set_zooms((spacing, spacing, out_of_plane_spacing))
     header.set_sform(affine)
+    header.set_qform(affine, code=1)
+    header['bitpix'] = 32  
+    header['scl_slope'] = 1.0 
+    header['scl_inter'] = 0.0
+    # nifti_img.header = header
     nib.save(nifti_img, file_name)
 
 def calculate_centroid(label_data, label_value, affine):
@@ -268,7 +276,8 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
     pca.fit(coords)
 
     # The first principal component (i.e., the first vector produced by PCA) points in the direction of the maximum variance in the dataset. For the LV region:
-    # The first principal component corresponds to the longest dimension of the LV shape.
+    # The first principal component corresponds to the longest
+    #  dimension of the LV shape.
     # This is why you can use it to estimate the LV long axis.
     long_axis_voxel = pca.components_[0]
 
@@ -416,7 +425,11 @@ def show_segmentations(data, affine, fig=None, background=False):
     for i, label in enumerate(nlabels):
         mask = data == label
         ijk = np.vstack(np.where(mask)).T
+        if ijk.ndim != 2 or ijk.shape[1] != 3: 
+            continue
         xyz = nib.affines.apply_affine(affine, ijk)
+        if xyz.shape[0] == 0:  # Check transformed points
+            continue
         show_point_cloud(xyz, fig=fig, opacity=0.9, color=colors[i], size=5)
     if not background:
         fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
