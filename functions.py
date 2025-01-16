@@ -187,7 +187,7 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     slice_affines = []
     slice_datas = []
     for slice_index in range(number_of_slices):
-        # Find the origin of the slice
+        # Find the origin of the slice by moving along normal vector from centroid
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
 
         # Create grid an interpolate data
@@ -199,7 +199,6 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         slice_datas.append(slice_data)
 
     scan_data = np.dstack(slice_datas)    # (plane_size, plane_size, number_of_slices)
-
     if number_of_slices == 1:
         scan_affine = slice_affines[0]
     else:
@@ -210,8 +209,6 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         scan_affine = base_affine
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "2 Chamber View")
-
-
     return scan_data, scan_affine
 
 
