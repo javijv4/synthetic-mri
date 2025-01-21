@@ -290,19 +290,33 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 
 
 
-def apply_misalignment(origin, normal, misalignment_level=0.0):
+# def apply_misalignment(origin, normal, misalignment_level=0.0):
 
-    if misalignment_level > 0:
-        # The np.random.randn(3) generates a random vector with three components, each drawn from a normal distribution with a mean of 0 and a standard deviation of 1.
-        translation = np.random.randn(3) * misalignment_level
-        origin = origin + translation
+#     if misalignment_level > 0:
+#         # The np.random.randn(3) generates a random vector with three components, each drawn from a normal distribution with a mean of 0 and a standard deviation of 1.
+#         translation = np.random.randn(3) * misalignment_level
+#         origin = origin + translation
 
-        # Apply a small random rotation to the normal vector
-        rotation = np.random.randn(3) * misalignment_level
-        normal = normal + rotation
-        normal = normal / np.linalg.norm(normal)
+#         # Apply a small random rotation to the normal vector
+#         rotation = np.random.randn(3) * misalignment_level
+#         normal = normal + rotation
+#         normal = normal / np.linalg.norm(normal)
+#         return origin, normal
 
-    return origin, normal
+def apply_misalignment(grid_points, spacing, misalignment_factor=0.1):
+    npoints = int(np.sqrt(len(grid_points))) 
+    grid_points = grid_points.reshape((npoints, npoints, 3)) 
+
+    misaligned_planes = []
+    for z_slice in grid_points:
+        misalignment = np.random.uniform(-misalignment_factor * spacing, 
+                                          misalignment_factor * spacing, 
+                                          size=z_slice.shape)
+        z_slice_misaligned = z_slice.copy()
+        z_slice_misaligned[:, 0:2] += misalignment[:, 0:2]
+        misaligned_planes.append(z_slice_misaligned)
+    grid_points_misaligned = np.dstack(misaligned_planes)
+    return grid_points_misaligned
 
 
 """  PLOTTING FUNCTIONS  """
