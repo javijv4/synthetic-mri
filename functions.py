@@ -180,21 +180,26 @@ def interpolate_image(xyz, data, data_affine):
     return interpolated_data.reshape(N,N)
 
 
-def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False, plane_vector=None):
+def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False, plane_vector=None, misalignment = .1):
     
     # Generate data for all slices 
     # slice_affines = np.zeros((number_of_slices, 4, 4))
     slice_affines = []
     slice_datas = []
+    original_coordinates = []
+    shifted_coordinates = []
     for slice_index in range(number_of_slices):
         # Find the origin of the slice by moving along normal vector from centroid
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
-
-        # Create grid an interpolate data
         slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size, plane_vector)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
-        # Save in arrays
+        original_coordinates.append(slice_grid.copy())
+        translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
+        slice_grid[:, 0] += translation[0]  # Shift x-coordinates
+        slice_grid[:, 1] += translation[1]  # Shift y-coordinates
+
+        shifted_coordinates.append(slice_grid.copy())
         slice_affines.append(slice_affine)
         slice_datas.append(slice_data)
 
@@ -209,7 +214,7 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         scan_affine = base_affine
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "2 Chamber View")
-    return scan_data, scan_affine
+    return scan_data, scan_affine, original_coordinates, shifted_coordinates
 
 
 def save_Nifti(data, affine, spacing, out_of_plane_spacing, file_name):
@@ -303,7 +308,7 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 #         normal = normal / np.linalg.norm(normal)
 #         return origin, normal
 
-def apply_misalignment(grid_points, spacing, misalignment_factor=0.1):
+def apply_misalignment(grid_points, transformation_matrix, spacing, file_name, misalignment_factor=0.1):
     npoints = int(np.sqrt(len(grid_points))) 
     grid_points = grid_points.reshape((npoints, npoints, 3)) 
 
@@ -316,7 +321,13 @@ def apply_misalignment(grid_points, spacing, misalignment_factor=0.1):
         z_slice_misaligned[:, 0:2] += misalignment[:, 0:2]
         misaligned_planes.append(z_slice_misaligned)
     grid_points_misaligned = np.dstack(misaligned_planes)
+
+    grid_volume = grid_points_misaligned.reshape((npoints, npoints, 3))
+    nifti_img = nib.Nifti1Image(grid_volume, transformation_matrix)
+    nib.save(nifti_img, file_name)
+
     return grid_points_misaligned
+
 
 
 """  PLOTTING FUNCTIONS  """
