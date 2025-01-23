@@ -189,6 +189,7 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     for slice_index in range(number_of_slices):
         # Find the origin of the slice by moving along normal vector from centroid
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
+        print(slice_index, slice_origin)
         slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
@@ -206,7 +207,7 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         scan_affine = slice_affines[0]
     else:
         base_affine = slice_affines[0].copy()
-        slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3]) / out_of_plane_spacing
+        slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3])
         base_affine[:3, 2] = slice_direction[:3]
         base_affine[:3, 3] = slice_affines[0][:3, 3]
         scan_affine = base_affine
@@ -443,11 +444,21 @@ def show_segmentations(data, affine, fig=None, background=False):
     if fig is None:
         fig = go.Figure()
 
-    # Make ij grid
-    i = np.arange(data.shape[0])
-    I, J = np.meshgrid(i, i)
-    ij = np.column_stack((I.ravel(), J.ravel()))
-    ijk = np.column_stack((ij, np.zeros_like(ij[:,0])))
+    # Check data dimensions
+    if len(data.shape) == 2:
+        # Make ij grid
+        i = np.arange(data.shape[0])
+        j = np.arange(data.shape[1])
+        I, J = np.meshgrid(i, j)
+        ij = np.column_stack((I.ravel(), J.ravel()))
+        ijk = np.column_stack((ij, np.zeros_like(ij[:,0])))
+    elif len(data.shape) == 3:
+        # Make ijk grid
+        i = np.arange(data.shape[0])
+        j = np.arange(data.shape[1])
+        k = np.arange(data.shape[2])
+        I, J, K = np.meshgrid(i, j, k)
+        ijk = np.column_stack((I.ravel(), J.ravel(), K.ravel()))
 
     xyz = nib.affines.apply_affine(affine, ijk)
     for i, label in enumerate(nlabels):
