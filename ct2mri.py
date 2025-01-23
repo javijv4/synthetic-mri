@@ -37,39 +37,15 @@ spatial_info = fn.calculate_spatial_information(ct_data, ct_affine, labels['LV']
 # Grabbing centroid and normal for all views
 sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin = fn.get_view_normal_origin(spatial_info)
 
-
-def get_plane_vector(normal):
-    if abs(normal[0]) < abs(normal[1]):
-        return np.array([1, 0, 0])  # Align with X-axis
-    else:
-        return np.array([0, 1, 0])  # Align with Y-axis
-
-
 # Create data
-sa_data, sa_affine = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
-                                             ct_data, ct_affine, 2, out_of_plane_spacing, plotOn = False)
-la_2ch_data, la_2ch_affine = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
-                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, plane_vector=sa_normal_origin[0])
-la_3ch_data, la_3ch_affine = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
-                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, plane_vector=sa_normal_origin[0])
-la_4ch_data, la_4ch_affine = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
-                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, plane_vector=sa_normal_origin[0])
-
-# sa_plane_vector = np.array([1, 0, 0])
-# sa_data, sa_affine = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
-#                                              ct_data, ct_affine, 1, out_of_plane_spacing, plane_vector=sa_plane_vector, plotOn=False)
-
-# la_2ch_plane_vector = np.array([0, 1, 0])
-# la_2ch_data, la_2ch_affine = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
-#                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plane_vector=la_2ch_plane_vector, plotOn=False)
-
-# la_3ch_plane_vector = np.array([1, 0, 0])
-# la_3ch_data, la_3ch_affine = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
-#                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plane_vector=la_3ch_plane_vector, plotOn=False)
-
-# la_4ch_plane_vector = np.array([0, 0, 1])
-# la_4ch_data, la_4ch_affine = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
-#                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plane_vector=la_4ch_plane_vector, plotOn=False)
+sa_data, sa_affine, _, _ = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
+                                             ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
+la_2ch_data, la_2ch_affine, _, _ = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
+                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
+la_3ch_data, la_3ch_affine, _, _ = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
+                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
+la_4ch_data, la_4ch_affine, _, _ = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
+                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
 
 
 # Plot segmentation using plotly
@@ -77,21 +53,21 @@ fig = fn.show_segmentations(sa_data, sa_affine, fig=None)
 fig = fn.show_segmentations(la_2ch_data, la_2ch_affine, fig=fig)
 fig = fn.show_segmentations(la_3ch_data, la_3ch_affine, fig=fig)
 fig = fn.show_segmentations(la_4ch_data, la_4ch_affine, fig=fig)
-# fig.show()
+fig.show()
 
 # # Add misalignment
 # magnitude = 5
 
-# Save views to nifti files
-if not os.path.exists(out_path):
-    os.makedirs(out_path, exists=True)
+# # Save views to nifti files
+# if not os.path.exists(out_path):
+#     os.makedirs(out_path, exists=True)
 
-fn.save_Nifti(sa_data, sa_affine, spacing, out_of_plane_spacing, out_path + 'SA.nii.gz')
-fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, out_path + '2CH.nii.gz')
-fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, out_path + '3CH.nii.gz')
-fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, out_path + '4CH.nii.gz')
+# fn.save_Nifti(sa_data, sa_affine, spacing, out_of_plane_spacing, out_path + 'SA.nii.gz')
+# fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, out_path + '2CH.nii.gz')
+# fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, out_path + '3CH.nii.gz')
+# fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, out_path + '4CH.nii.gz')
 
-fn.display_views(sa_data=sa_data, la_2CH_data=la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data=la_4ch_data)
+# fn.display_views(sa_data=sa_data, la_2CH_data=la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data=la_4ch_data)
 
 
 

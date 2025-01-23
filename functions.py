@@ -56,7 +56,7 @@ def get_view_normal_origin(spatial_info):
     la_2ch_normal_origin = la_2ch_normal, la_2ch_origin
 
     # 3CH
-    v = spatial_info["LV Centroid"] - spatial_info["Aorta Centroid"]
+    v = spatial_info["Aorta Centroid"] - spatial_info["LV Centroid"]
     v = v / np.linalg.norm(v)
     normal = np.cross(v, spatial_info["LV Long Axis"])
     normal = normal / np.linalg.norm(normal)
@@ -76,7 +76,7 @@ def get_view_normal_origin(spatial_info):
     return sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin
 
 
-def grid_in_plane(origin, normal, spacing, plane_size, plane_vector=None):
+def grid_in_plane(origin, normal, spacing, plane_size):
     """
     Generates a grid of points in a plane defined by an origin and a normal vector.
     Note that the grid is centered at the origin and the points are spaced the same in both in-plane directions.
@@ -94,10 +94,7 @@ def grid_in_plane(origin, normal, spacing, plane_size, plane_vector=None):
     normal = normal / np.linalg.norm(normal)
 
     # Use plane vector if provided, otherwise create one
-    if plane_vector is not None:
-        u = plane_vector / np.linalg.norm(plane_vector)
-    else:
-        u = np.array([1, 0, 0]) if abs(normal[0]) < abs(normal[1]) else np.array([0, 1, 0])
+    u = np.array([1, 0, 0]) if abs(normal[0]) < abs(normal[1]) else np.array([0, 1, 0])
     v = np.cross(normal, u)
     v = v / np.linalg.norm(v)   # Normalizing vector
     u = np.cross(v, normal)
@@ -180,7 +177,8 @@ def interpolate_image(xyz, data, data_affine):
     return interpolated_data.reshape(N,N)
 
 
-def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False, plane_vector=None, misalignment = .1):
+def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
+                         plotOn=False, misalignment = .1):
     
     # Generate data for all slices 
     # slice_affines = np.zeros((number_of_slices, 4, 4))
@@ -191,7 +189,7 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     for slice_index in range(number_of_slices):
         # Find the origin of the slice by moving along normal vector from centroid
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
-        slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size, plane_vector)
+        slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         original_coordinates.append(slice_grid.copy())
@@ -444,15 +442,17 @@ def show_segmentations(data, affine, fig=None, background=False):
     
     if fig is None:
         fig = go.Figure()
+
+    # Make ij grid
+    i = np.arange(data.shape[0])
+    I, J = np.meshgrid(i, i)
+    ij = np.column_stack((I.ravel(), J.ravel()))
+    ijk = np.column_stack((ij, np.zeros_like(ij[:,0])))
+
+    xyz = nib.affines.apply_affine(affine, ijk)
     for i, label in enumerate(nlabels):
-        mask = data == label
-        ijk = np.vstack(np.where(mask)).T
-        if ijk.ndim != 2 or ijk.shape[1] != 3: 
-            continue
-        xyz = nib.affines.apply_affine(affine, ijk)
-        if xyz.shape[0] == 0:  # Check transformed points
-            continue
-        show_point_cloud(xyz, fig=fig, opacity=0.9, color=colors[i], size=5)
+        show_point_cloud(xyz[data.ravel() == label], fig=fig, opacity=0.9, color=colors[i], size=5)
+
     if not background:
         fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
     return fig
