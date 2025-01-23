@@ -38,13 +38,13 @@ spatial_info = fn.calculate_spatial_information(ct_data, ct_affine, labels['LV']
 sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin = fn.get_view_normal_origin(spatial_info)
 
 # Create data
-sa_data, sa_affine, _, _ = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
+sa_data, sa_affine, sa_data_misaligned = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
                                              ct_data, ct_affine, 13, out_of_plane_spacing, plotOn = False)
-la_2ch_data, la_2ch_affine, _, _ = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
+la_2ch_data, la_2ch_affine, _ = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
-la_3ch_data, la_3ch_affine, _, _ = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
+la_3ch_data, la_3ch_affine, _ = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
-la_4ch_data, la_4ch_affine, _, _ = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
+la_4ch_data, la_4ch_affine, _ = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
 
 # Plot segmentation using plotly
@@ -66,7 +66,18 @@ fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, out_pat
 fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, out_path + '3CH.nii.gz')
 fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, out_path + '4CH.nii.gz')
 
-# fn.display_views(sa_data=sa_data, la_2CH_data=la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data=la_4ch_data)
+# Find valve masks
+
+# Save valve masks
+fn.save_Nifti(la_2ch_valves, la_2ch_affine, spacing, out_of_plane_spacing, out_path + 'LA_2CH_valves.nii.gz')
+
+# Save misaligned
+# fn.save_Nifti(sa_data_misaligned, sa_affine, spacing, out_of_plane_spacing, out_path + f'SA_ma_{magnitude}.nii.gz')
+# fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, out_path + '2CH.nii.gz')
+# fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, out_path + '3CH.nii.gz')
+# fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, out_path + '4CH.nii.gz')
+
+fn.display_views(sa_data=sa_data, la_2CH_data=la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data=la_4ch_data)
 
 
 

@@ -189,7 +189,6 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     for slice_index in range(number_of_slices):
         # Find the origin of the slice by moving along normal vector from centroid
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
-        print(slice_index, slice_origin)
         slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
@@ -197,6 +196,8 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
         slice_grid[:, 0] += translation[0]  # Shift x-coordinates
         slice_grid[:, 1] += translation[1]  # Shift y-coordinates
+
+        slice_data_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
 
         shifted_coordinates.append(slice_grid.copy())
         slice_affines.append(slice_affine)
@@ -213,7 +214,7 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         scan_affine = base_affine
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "2 Chamber View")
-    return scan_data, scan_affine, original_coordinates, shifted_coordinates
+    return scan_data, scan_affine, slice_data_misaligned #original_coordinates, shifted_coordinates
 
 
 def save_Nifti(data, affine, spacing, out_of_plane_spacing, file_name):
