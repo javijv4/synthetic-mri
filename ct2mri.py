@@ -14,7 +14,8 @@ from mpl_toolkits.mplot3d import Axes3D
 
 # User inputs
 ct_path = 'data/labels.nii.gz'
-out_path = 'data/'
+data_path = 'data/clean/'
+misaligned_path = 'data/misaligned/'
 labels = {'LV': 1, 'RV': 3, 'Aorta': 6}
 inplane_spacing = 3.0       # Use this when generating the grid
 spacing = 2.0       # Use this when generating the grid
@@ -22,8 +23,8 @@ out_of_plane_spacing = 10.0
 number_of_slices = 13
 
 # Create output directory
-if not os.path.exists(out_path):
-    os.makedirs(out_path, exists=True)
+if not os.path.exists(data_path):
+    os.makedirs(data_path, exists=True)
 
 # Read CT image
 ct_data, ct_affine, pixdim = fn.readFromNIFTI(ct_path)
@@ -40,11 +41,11 @@ sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_orig
 # Create data
 sa_data, sa_affine, sa_data_misaligned = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
                                              ct_data, ct_affine, 13, out_of_plane_spacing, plotOn = False)
-la_2ch_data, la_2ch_affine, _ = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
+la_2ch_data, la_2ch_affine, la_2ch_data_misaligned = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
-la_3ch_data, la_3ch_affine, _ = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
+la_3ch_data, la_3ch_affine, la_3ch_data_misaligned = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
-la_4ch_data, la_4ch_affine, _ = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
+la_4ch_data, la_4ch_affine, la_4ch_data_misaligned = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
                                                      ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False)
 
 # Plot segmentation using plotly
@@ -52,7 +53,7 @@ fig = fn.show_segmentations(sa_data, sa_affine, fig=None)
 fig = fn.show_segmentations(la_2ch_data, la_2ch_affine, fig=fig)
 fig = fn.show_segmentations(la_3ch_data, la_3ch_affine, fig=fig)
 fig = fn.show_segmentations(la_4ch_data, la_4ch_affine, fig=fig)
-fig.show()
+# fig.show()
 
 # # Add misalignment
 # magnitude = 5
@@ -61,26 +62,16 @@ fig.show()
 # if not os.path.exists(out_path):
 #     os.makedirs(out_path, exists=True)
 
-fn.save_Nifti(sa_data, sa_affine, spacing, out_of_plane_spacing, out_path + 'SA.nii.gz')
-fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, out_path + '2CH.nii.gz')
-fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, out_path + '3CH.nii.gz')
-fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, out_path + '4CH.nii.gz')
+fn.save_all_nifti_files(fn, data_path, misaligned_path, sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
+                        la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
+                         la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, 
+                         spacing, out_of_plane_spacing)
 
-# Find valve masks
-
-# Save valve masks
-fn.save_Nifti(la_2ch_valves, la_2ch_affine, spacing, out_of_plane_spacing, out_path + 'LA_2CH_valves.nii.gz')
-
-# Save misaligned
-# fn.save_Nifti(sa_data_misaligned, sa_affine, spacing, out_of_plane_spacing, out_path + f'SA_ma_{magnitude}.nii.gz')
-# fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, out_path + '2CH.nii.gz')
-# fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, out_path + '3CH.nii.gz')
-# fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, out_path + '4CH.nii.gz')
-
-fn.display_views(sa_data=sa_data, la_2CH_data=la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data=la_4ch_data)
+# TODO: Create folders for them for foreign users
+# TODO: mark the ventricles in the heart
+# TODO: create a 2D mask thats 1 on the points where the ventricles are / find valve masks
 
 
-
-# TODO: FIX MULTIPLE SLICES
-# FIX GRID IN PLANE
-# Update save nifit values, set zooms, set sform, check in Eidilon
+# fn.display_views(sa_data=sa_data, la_2CH_data=la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data=la_4ch_data)
+# av_endpoints = fn.find_lv_aorta_endpoints( label_data=la_3ch_data, lv_label=labels['LV'], aorta_label=labels['Aorta'], affine=la_3ch_affine)
+fn.display_views(la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data)

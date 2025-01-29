@@ -5,6 +5,10 @@ from sklearn.decomposition import PCA
 import monai.transforms as mt
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
+from skimage.measure import find_contours, label, regionprops
+from scipy.spatial.distance import euclidean
+from skimage.segmentation import find_boundaries
+
 
 def readFromNIFTI(segName, correct_ras=True):
     ''' Helper function used by masks2ContoursSA() and masks2ContoursLA(). Returns (seg, transform, pixSpacing). '''
@@ -184,26 +188,24 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     # slice_affines = np.zeros((number_of_slices, 4, 4))
     slice_affines = []
     slice_datas = []
-    original_coordinates = []
-    shifted_coordinates = []
+    slice_data_misaligned = []
     for slice_index in range(number_of_slices):
         # Find the origin of the slice by moving along normal vector from centroid
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
         slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
-        original_coordinates.append(slice_grid.copy())
         translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
         slice_grid[:, 0] += translation[0]  # Shift x-coordinates
         slice_grid[:, 1] += translation[1]  # Shift y-coordinates
 
-        slice_data_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
-
-        shifted_coordinates.append(slice_grid.copy())
+        curr_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
+        slice_data_misaligned.append(curr_misaligned)
         slice_affines.append(slice_affine)
         slice_datas.append(slice_data)
 
-    scan_data = np.dstack(slice_datas)    # (plane_size, plane_size, number_of_slices)
+    scan_data = np.dstack(slice_datas)    # dstack stacks arrays along third dimension, depth
+    slice_data_misaligned = np.dstack(slice_data_misaligned)
     if number_of_slices == 1:
         scan_affine = slice_affines[0]
     else:
@@ -244,10 +246,7 @@ def calculate_centroid(label_data, label_value, affine):
     if coords.size == 0:
         return None
 
-    # Calculate centroid in voxel coordinates
-    centroid_voxel = np.mean(coords, axis=0)
-
-    # Convert to real-world coordinates using the affine matrix
+    centroid_voxel = np.mean(coords, axis=0)     # Calculate centroid in voxel coordinates
     centroid_real = nib.affines.apply_affine(affine, centroid_voxel)
     return centroid_real
 
@@ -383,9 +382,21 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
        axes[0, 1].axis('off') 
     else:
         middle_index = la_2CH_data.shape[-1] // 2
-        axes[0, 1].imshow(la_2CH_data[:,:,middle_index], cmap='gray', origin='lower')
+        two_ch_slice = la_2CH_data[:, :, middle_index]
+        MV_endpoints = find_AV(slice_data=two_ch_slice, lv_label=1, aorta_label=4)
+        axes[0, 1].imshow(two_ch_slice, cmap='gray', origin='lower')
         axes[0, 1].set_title("Two-Chamber View (Middle Slice)")
+        mv_label = False
+        if MV_endpoints is not None and all(endpoint is not None for endpoint in MV_endpoints):
+            for endpoint in MV_endpoints:
+                if not mv_label:
+                    axes[0, 1].plot(endpoint[1], endpoint[0], marker='o', color='#FFCB05', markersize=3, label='MV Endpoint')
+                    mv_label = True
+                else:
+                    axes[0, 1].plot(endpoint[1], endpoint[0], marker='o', color='#FFCB05', markersize=3)
+        axes[0, 1].legend(loc='upper right')
         axes[0, 1].axis('off')
+
 
    # 3-Chamber View
     if la_3CH_data is None:
@@ -393,8 +404,32 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
        axes[1, 0].axis('off')
     else:
         middle_index = la_3CH_data.shape[-1] // 2
-        axes[1, 0].imshow(la_3CH_data[:,:,middle_index], cmap='gray', origin='lower')
+        three_ch_slice = la_3CH_data[:, :, middle_index]
+        AV_endpoints = find_AV(slice_data=three_ch_slice, lv_label=1, aorta_label=6)
+        MV_endpoints = find_AV(slice_data=three_ch_slice, lv_label=1, aorta_label=4)
+        endpoint_array = np.zeros_like(three_ch_slice, dtype=np.uint8)
+        endpoint_array = create_valve_array(endpoint_array, AV_endpoints, endpoint_value=3) 
+        endpoint_array = create_valve_array(endpoint_array, MV_endpoints, endpoint_value=1) 
+        av_label = False
+        mv_label = False
+        axes[1, 0].imshow(three_ch_slice, cmap='gray', origin='lower')
         axes[1, 0].set_title("Three-Chamber View (Middle Slice)")
+        if AV_endpoints is not None and all(endpoint is not None for endpoint in AV_endpoints):
+            for endpoint in AV_endpoints:
+                if not av_label:
+                    av_label = True
+                    axes[1, 0].plot(endpoint[1], endpoint[0], marker='o', color='#FFCB05', markersize=3, label='AV Endpoint')
+                else:
+                    axes[1, 0].plot(endpoint[1], endpoint[0], marker='o', color='#FFCB05', markersize=3)
+        if MV_endpoints is not None and all(endpoint is not None for endpoint in MV_endpoints):
+            for endpoint in MV_endpoints:
+                if not mv_label:
+                    mv_label = True
+                    axes[1, 0].plot(endpoint[1], endpoint[0], marker='o', color='#007FFF', markersize=3, label='MV Endpoint')
+                else:
+                    axes[1, 0].plot(endpoint[1], endpoint[0], marker='o', color='#007FFF', markersize=3)
+
+        axes[1, 0].legend(loc='upper right')
         axes[1, 0].axis('off')
 
    # 4-Chamber View
@@ -403,8 +438,30 @@ def display_views(sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=
        axes[1, 1].axis('off')
     else:
         middle_index = la_4CH_data.shape[-1] // 2
-        axes[1, 1].imshow(la_4CH_data[:,:,middle_index], cmap='gray', origin='lower')
+        four_ch_slice = la_4CH_data[:, :, middle_index]
+        TV_endpoints = find_AV(slice_data=four_ch_slice, lv_label=2, aorta_label=3)
+        MV_endpoints = find_AV(slice_data=four_ch_slice, lv_label=1, aorta_label=4)
+
+        axes[1, 1].imshow(four_ch_slice, cmap='gray', origin='lower')
         axes[1, 1].set_title("Four-Chamber View (Middle Slice)")
+        mv_label = False
+        tv_label = False
+        if TV_endpoints is not None and all(endpoint is not None for endpoint in TV_endpoints):
+            for endpoint in TV_endpoints:
+                if not tv_label:
+                    axes[1, 1].plot(endpoint[1], endpoint[0], marker='o', color='#FFCB05', markersize=3, label='TV Endpoint')
+                    tv_label=True
+                else:
+                    axes[1, 1].plot(endpoint[1], endpoint[0], marker='o', color='#FFCB05', markersize=3)
+        if MV_endpoints is not None and all(endpoint is not None for endpoint in MV_endpoints):
+            for endpoint in MV_endpoints:
+                if not mv_label:
+                    axes[1, 1].plot(endpoint[1], endpoint[0], marker='o', color='#007FFF', markersize=3, label='MV Endpoint')
+                    mv_label = True
+                else:
+                    axes[1, 1].plot(endpoint[1], endpoint[0], marker='o', color='#007FFF', markersize=3)
+
+        axes[1, 1].legend(loc='upper right')
         axes[1, 1].axis('off')
     plt.tight_layout()
     plt.show()
@@ -469,3 +526,72 @@ def show_segmentations(data, affine, fig=None, background=False):
         fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
     return fig
 
+
+def save_all_nifti_files(fn, data_path, misaligned_path, sa_data, sa_affine, la_2ch_data, la_2ch_affine,
+                         la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
+                         la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, 
+                         spacing, out_of_plane_spacing):
+    fn.save_Nifti(sa_data, sa_affine, spacing, out_of_plane_spacing, data_path + 'SA.nii.gz')
+    fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, data_path + '2CH.nii.gz')
+    fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, data_path + '3CH.nii.gz')
+    fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, data_path + '4CH.nii.gz')
+
+    fn.save_Nifti(sa_data_misaligned, sa_affine, spacing, out_of_plane_spacing, misaligned_path + 'SA_misaligned.nii.gz')
+    fn.save_Nifti(la_2ch_data_misaligned, la_2ch_affine, spacing, out_of_plane_spacing, misaligned_path + '2CH_misaligned.nii.gz')
+    fn.save_Nifti(la_3ch_data_misaligned, la_3ch_affine, spacing, out_of_plane_spacing, misaligned_path + '3CH_misaligned.nii.gz')
+    fn.save_Nifti(la_4ch_data_misaligned, la_4ch_affine, spacing, out_of_plane_spacing, misaligned_path + '4CH_misaligned.nii.gz')
+
+    data_path = '../../bvmodelgen_urop/data/clean/'
+    misaligned_data_path = '../../bvmodelgen_urop/data/misaligned/'
+
+    fn.save_Nifti(sa_data, sa_affine, spacing, out_of_plane_spacing, data_path + 'SA.nii.gz')
+    fn.save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, data_path + '2CH.nii.gz')
+    fn.save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, data_path + '3CH.nii.gz')
+    fn.save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, data_path + '4CH.nii.gz')
+
+    fn.save_Nifti(sa_data_misaligned, sa_affine, spacing, out_of_plane_spacing, misaligned_data_path + 'SA_misaligned.nii.gz')
+    fn.save_Nifti(la_2ch_data_misaligned, la_2ch_affine, spacing, out_of_plane_spacing, misaligned_data_path + '2CH_misaligned.nii.gz')
+    fn.save_Nifti(la_3ch_data_misaligned, la_3ch_affine, spacing, out_of_plane_spacing, misaligned_data_path + '3CH_misaligned.nii.gz')
+    fn.save_Nifti(la_4ch_data_misaligned, la_4ch_affine, spacing, out_of_plane_spacing, misaligned_data_path + '4CH_misaligned.nii.gz')
+
+def find_AV(slice_data, lv_label, aorta_label):
+    lv_mask = slice_data == lv_label
+    aorta_mask = slice_data == aorta_label
+
+    lv_boundary = find_boundaries(lv_mask, mode='thick')
+    aorta_boundary = find_boundaries(aorta_mask, mode='thick')
+
+    overlap_boundary = np.logical_and(lv_boundary, aorta_boundary)
+
+    if not np.any(overlap_boundary):
+        raise ValueError("No overlapping boundary points found between LV and Aorta.")
+
+    contours = find_contours(overlap_boundary, level=0.5) #detects change in the image color and marks it as contour
+    if not contours:
+        raise ValueError("No contours found in the overlap boundary.")
+
+    largest_contour = max(contours, key=len)
+
+    def find_furthest_points(contour):
+        max_distance = 0
+        endpoints = (None, None)
+        for i, p1 in enumerate(contour):
+            for j, p2 in enumerate(contour):
+                distance = euclidean(p1, p2)
+                if distance > max_distance:
+                    max_distance = distance
+                    endpoints = (p1, p2)
+        return endpoints
+
+    endpoints = find_furthest_points(largest_contour)
+    return endpoints
+
+
+def create_valve_array(array, endpoints, endpoint_value):
+    for point in endpoints:
+        if point is not None:  
+            y, x = int(point[0]), int(point[1]) 
+            if 0 <= y < array.shape[0] and 0 <= x < array.shape[1]:  
+                array[y, x] = endpoint_value
+
+    return array
