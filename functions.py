@@ -233,7 +233,7 @@ def save_Nifti(data, affine, file_name = None):
     header.set_qform(affine)
     nib.save(nifti_img, file_name)
 
-def save_valve_nifti(data, affine, file_name = None):
+def save_Nifti(data, affine, file_name = None):
     nifti_img = nib.Nifti1Image(data, affine)
     nib.save(nifti_img, file_name)
 
@@ -392,8 +392,8 @@ def display_views(paths, Type, sa_data=None, la_2CH_data=None, la_3CH_data=None,
         array_size = (*two_ch_slice.shape, 1)
         valve_array = np.zeros(array_size, dtype=np.uint8)
         create_valve_array(valve_array, MV_endpoints, 1)
-        save_valve_nifti(valve_array, la_2CH_affine, paths[Type]['data'] + '2CH_valve.nii.gz')
-        save_valve_nifti(valve_array, la_2CH_affine, paths[Type]['bvg'] + '2CH_valve.nii.gz')
+        save_Nifti(valve_array, la_2CH_affine, paths[Type]['data'] + '2CH_valve.nii.gz')
+        save_Nifti(valve_array, la_2CH_affine, paths[Type]['bvg'] + '2CH_valve.nii.gz')
         endpoints_summary['2CH'] = {'MV': MV_endpoints}
     else:
         print("Failed to generate 2-chamber view.")
@@ -409,8 +409,8 @@ def display_views(paths, Type, sa_data=None, la_2CH_data=None, la_3CH_data=None,
         valve_array = np.zeros(array_size, dtype=np.uint8)
         create_valve_array(valve_array, AV_endpoints, 3)
         create_valve_array(valve_array, MV_endpoints, 1)
-        save_valve_nifti(valve_array, la_3CH_affine, paths[Type]['data'] + '3CH_valve.nii.gz')
-        save_valve_nifti(valve_array, la_3CH_affine, paths[Type]['bvg'] + '3CH_valve.nii.gz')
+        save_Nifti(valve_array, la_3CH_affine, paths[Type]['data'] + '3CH_valve.nii.gz')
+        save_Nifti(valve_array, la_3CH_affine, paths[Type]['bvg'] + '3CH_valve.nii.gz')
         endpoints_summary['3CH'] = {'AV': AV_endpoints, 'MV': MV_endpoints}
     else:
         print("Failed to generate 3-chamber view.")
@@ -426,8 +426,8 @@ def display_views(paths, Type, sa_data=None, la_2CH_data=None, la_3CH_data=None,
         valve_array = np.zeros(array_size, dtype=np.uint8)
         create_valve_array(valve_array, TV_endpoints, 2)
         create_valve_array(valve_array, MV_endpoints, 1)
-        save_valve_nifti(valve_array, la_4CH_affine, paths[Type]['data'] + '4CH_valve.nii.gz')
-        save_valve_nifti(valve_array, la_4CH_affine, paths[Type]['bvg'] + '4CH_valve.nii.gz')
+        save_Nifti(valve_array, la_4CH_affine, paths[Type]['data'] + '4CH_valve.nii.gz')
+        save_Nifti(valve_array, la_4CH_affine, paths[Type]['bvg'] + '4CH_valve.nii.gz')
         endpoints_summary['4CH'] = {'TV': TV_endpoints, 'MV': MV_endpoints} 
     else:
         print("Failed to generate 4-chamber view.")
@@ -500,26 +500,26 @@ def show_segmentations(data, affine, fig=None, background=False):
 def save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine,
                          la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
                          la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, 
-                         spacing, out_of_plane_spacing, paths):
-    save_Nifti(sa_data, sa_affine, spacing, out_of_plane_spacing, paths['clean']['data'] + 'SA.nii.gz')
-    save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, paths['clean']['data'] + '2CH.nii.gz')
-    save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, paths['clean']['data'] + '3CH.nii.gz')
-    save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, paths['clean']['data'] + '4CH.nii.gz')
+                         paths):
+    save_Nifti(sa_data, sa_affine, paths['clean']['data'] + 'SA.nii.gz')
+    save_Nifti(la_2ch_data, la_2ch_affine, paths['clean']['data'] + '2CH.nii.gz')
+    save_Nifti(la_3ch_data, la_3ch_affine, paths['clean']['data'] + '3CH.nii.gz')
+    save_Nifti(la_4ch_data, la_4ch_affine, paths['clean']['data'] + '4CH.nii.gz')
 
-    save_Nifti(sa_data_misaligned, sa_affine, spacing, out_of_plane_spacing, paths['misaligned']['data'] + 'SA_misaligned.nii.gz')
-    save_Nifti(la_2ch_data_misaligned, la_2ch_affine, spacing, out_of_plane_spacing, paths['misaligned']['data'] + '2CH_misaligned.nii.gz')
-    save_Nifti(la_3ch_data_misaligned, la_3ch_affine, spacing, out_of_plane_spacing, paths['misaligned']['data'] + '3CH_misaligned.nii.gz')
-    save_Nifti(la_4ch_data_misaligned, la_4ch_affine, spacing, out_of_plane_spacing, paths['misaligned']['data'] + '4CH_misaligned.nii.gz')
+    save_Nifti(sa_data_misaligned, sa_affine, paths['misaligned']['data'] + 'SA_misaligned.nii.gz')
+    save_Nifti(la_2ch_data_misaligned, la_2ch_affine, paths['misaligned']['data'] + '2CH_misaligned.nii.gz')
+    save_Nifti(la_3ch_data_misaligned, la_3ch_affine, paths['misaligned']['data'] + '3CH_misaligned.nii.gz')
+    save_Nifti(la_4ch_data_misaligned, la_4ch_affine, paths['misaligned']['data'] + '4CH_misaligned.nii.gz')
 
-    save_Nifti(sa_data, sa_affine, spacing, out_of_plane_spacing, paths['clean']['bvg'] + 'SA.nii.gz')
-    save_Nifti(la_2ch_data, la_2ch_affine, spacing, out_of_plane_spacing, paths['clean']['bvg'] + '2CH.nii.gz')
-    save_Nifti(la_3ch_data, la_3ch_affine, spacing, out_of_plane_spacing, paths['clean']['bvg'] + '3CH.nii.gz')
-    save_Nifti(la_4ch_data, la_4ch_affine, spacing, out_of_plane_spacing, paths['clean']['bvg'] + '4CH.nii.gz')
+    save_Nifti(sa_data, sa_affine, paths['clean']['bvg'] + 'SA.nii.gz')
+    save_Nifti(la_2ch_data, la_2ch_affine, paths['clean']['bvg'] + '2CH.nii.gz')
+    save_Nifti(la_3ch_data, la_3ch_affine, paths['clean']['bvg'] + '3CH.nii.gz')
+    save_Nifti(la_4ch_data, la_4ch_affine, paths['clean']['bvg'] + '4CH.nii.gz')
 
-    save_Nifti(sa_data_misaligned, sa_affine, spacing, out_of_plane_spacing, paths['misaligned']['bvg'] + 'SA_misaligned.nii.gz')
-    save_Nifti(la_2ch_data_misaligned, la_2ch_affine, spacing, out_of_plane_spacing, paths['misaligned']['bvg'] + '2CH_misaligned.nii.gz')
-    save_Nifti(la_3ch_data_misaligned, la_3ch_affine, spacing, out_of_plane_spacing, paths['misaligned']['bvg'] + '3CH_misaligned.nii.gz')
-    save_Nifti(la_4ch_data_misaligned, la_4ch_affine, spacing, out_of_plane_spacing, paths['misaligned']['bvg'] + '4CH_misaligned.nii.gz')
+    save_Nifti(sa_data_misaligned, sa_affine, paths['misaligned']['bvg'] + 'SA_misaligned.nii.gz')
+    save_Nifti(la_2ch_data_misaligned, la_2ch_affine, paths['misaligned']['bvg'] + '2CH_misaligned.nii.gz')
+    save_Nifti(la_3ch_data_misaligned, la_3ch_affine, paths['misaligned']['bvg'] + '3CH_misaligned.nii.gz')
+    save_Nifti(la_4ch_data_misaligned, la_4ch_affine, paths['misaligned']['bvg'] + '4CH_misaligned.nii.gz')
 
 def find_furthest_points(contour):
     max_distance = 0

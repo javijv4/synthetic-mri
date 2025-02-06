@@ -65,8 +65,7 @@ fig.show()
 
 fn.save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
                         la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
-                         la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, 
-                         spacing, out_of_plane_spacing, paths)
+                         la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, paths)
 
 truth_endpoints = fn.display_views(paths, 'clean', la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine)
 misalgined_endpoints = fn.display_views(paths, 'misaligned', la_2CH_data= la_2ch_data_misaligned, la_3CH_data=la_3ch_data_misaligned, la_4CH_data= la_4ch_data_misaligned, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine)
