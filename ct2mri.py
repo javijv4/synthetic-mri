@@ -33,7 +33,9 @@ number_of_slices = 13
 
 # Create output directory
 if not os.path.exists(paths['clean']['data']):
-    os.makedirs(paths['clean']['data'], exists=True)
+    os.makedirs(paths['clean']['data'])
+if not os.path.exists(paths['misaligned']['data']):
+    os.makedirs(paths['misaligned']['data'])
 
 # Read CT image
 ct_data, ct_affine, pixdim = fn.readFromNIFTI(ct_path)
