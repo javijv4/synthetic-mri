@@ -223,16 +223,14 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     return scan_data, scan_affine, slice_data_misaligned #original_coordinates, shifted_coordinates
 
 
-def save_Nifti(data, affine, spacing = None, out_of_plane_spacing= None, file_name = None):
-    nifti_img = nib.Nifti1Image(data, affine)
+def save_Nifti(data, affine, file_name = None):
+    new_affine = affine.copy()
+    new_affine[:2,:] = -new_affine[:2,:]
+    affine = new_affine
+    new_data = np.swapaxes(data, 0, 1)
+    nifti_img = nib.Nifti1Image(new_data, affine)
     header = nifti_img.header
-    header.set_zooms((spacing, spacing, out_of_plane_spacing))
-    header.set_sform(affine)
-    header.set_qform(affine, code=1)
-    header['bitpix'] = 32  
-    header['scl_slope'] = 1.0 
-    header['scl_inter'] = 0.0
-    # nifti_img.header = header
+    header.set_qform(affine)
     nib.save(nifti_img, file_name)
 
 def save_valve_nifti(data, affine, file_name = None):
@@ -388,7 +386,7 @@ def display_views(paths, Type, sa_data=None, la_2CH_data=None, la_3CH_data=None,
     if la_2CH_data is not None:    # 2-Chamber View
         middle_index = la_2CH_data.shape[-1] // 2
         two_ch_slice = la_2CH_data[:, :, middle_index]
-        MV_endpoints = find_MV_2CH(slice_data=two_ch_slice, lv_label=1, aorta_label=4)
+        MV_endpoints = find_MV_2CH(slice_data=two_ch_slice, lv_label=1, la_label=4)
         plot_slice_with_endpoints(axes[0, 1], two_ch_slice, "Two-Chamber View (Middle Slice)", 
                                   {'MV': (MV_endpoints, '#FFCB05', 'MV Endpoint')} )
         array_size = (*two_ch_slice.shape, 1)
@@ -404,7 +402,7 @@ def display_views(paths, Type, sa_data=None, la_2CH_data=None, la_3CH_data=None,
     if la_3CH_data is not None:    # 3-Chamber View
         middle_index = la_3CH_data.shape[-1] // 2
         three_ch_slice = la_3CH_data[:, :, middle_index]
-        AV_endpoints, MV_endpoints = find_MV_AV_3CH(slice_data=three_ch_slice, lv_label=1, aorta_label=4, third_label=6)
+        AV_endpoints, MV_endpoints = find_MV_AV_3CH(slice_data=three_ch_slice, lv_label=1, la_label=4, aorta_label=6)
         plot_slice_with_endpoints( axes[1, 0], three_ch_slice, "Three-Chamber View (Middle Slice)",
             { 'AV': (AV_endpoints, '#FFCB05', 'AV Endpoint'), 'MV': (MV_endpoints, '#007FFF', 'MV Endpoint')})
         array_size = (*three_ch_slice.shape, 1)
@@ -421,7 +419,7 @@ def display_views(paths, Type, sa_data=None, la_2CH_data=None, la_3CH_data=None,
     if la_4CH_data is not None:    # 4-Chamber View
         middle_index = la_4CH_data.shape[-1] // 2
         four_ch_slice = la_4CH_data[:, :, middle_index]
-        TV_endpoints, MV_endpoints = find_TV_AV_4CH(slice_data=four_ch_slice, first=2, second=3, third=1, fourth=4)
+        TV_endpoints, MV_endpoints = find_MV_TV_4CH(slice_data=four_ch_slice, lv_label=1, rv_label=3, la_label=4, ra_label=5)
         plot_slice_with_endpoints( axes[1, 1], four_ch_slice, "Four-Chamber View (Middle Slice)", 
                                   {'TV': (TV_endpoints, '#FFCB05', 'TV Endpoint'), 'MV': (MV_endpoints, '#007FFF', 'MV Endpoint') })
         array_size = (*four_ch_slice.shape, 1)
@@ -534,22 +532,20 @@ def find_furthest_points(contour):
                 endpoints = (p1, p2)
     return endpoints
 
+def find_overlap(slice_data, label1, label2):
+    mask1 = slice_data == label1
+    mask2 = slice_data == label2
 
-def find_overlap(slice_data, lv_label, aorta_label):
-    lv_mask = slice_data == lv_label
-    aorta_mask = slice_data == aorta_label
-
-    lv_boundary = find_boundaries(lv_mask, mode='thick')
-    aorta_boundary = find_boundaries(aorta_mask, mode='thick')
-    lv_boundary_resized = resize(lv_boundary, slice_data.shape, order=0, mode='constant', preserve_range=True)
-    aorta_boundary_resized = resize(aorta_boundary, slice_data.shape, order=0, mode='constant', preserve_range=True)
-    overlap_boundary = np.logical_and(lv_boundary_resized > 0.99, aorta_boundary_resized > 0.99)
-    # overlap_boundary = np.logical_and(lv_boundary, aorta_boundary)
+    boundary1 = find_boundaries(mask1, mode='thick')
+    boundary2 = find_boundaries(mask2, mode='thick')
+    boundary1_resized = resize(boundary1, slice_data.shape, order=0, mode='constant', preserve_range=True)
+    boundary2_resized = resize(boundary2, slice_data.shape, order=0, mode='constant', preserve_range=True)
+    overlap_boundary = np.logical_and(boundary1_resized > 0.99, boundary2_resized > 0.99)
 
     if not np.any(overlap_boundary):
-        raise ValueError("No overlapping boundary points found between LV and Aorta.")
+        raise ValueError("No overlapping boundary points found between the labels.")
 
-    contours = find_contours(overlap_boundary, level=0.5) #detects change in the image color and marks it as contour
+    contours = find_contours(overlap_boundary, level=0.5)
     if not contours:
         raise ValueError("No contours found in the overlap boundary.")
 
@@ -568,17 +564,17 @@ def create_valve_array(array, endpoints, endpoint_value):
 
     return array
 
-def find_MV_2CH(slice_data, lv_label=1, aorta_label=4):
-    endpoints = find_overlap(slice_data, lv_label, aorta_label)
+def find_MV_2CH(slice_data, lv_label=1, la_label=4):
+    endpoints = find_overlap(slice_data, lv_label, la_label)
     return endpoints
 
-def find_MV_AV_3CH(slice_data, lv_label=1, aorta_label=4, third_label = 6):
+def find_MV_AV_3CH(slice_data, lv_label=1, la_label=4, aorta_label=6):
     AV_endpoints = find_overlap(slice_data, lv_label, aorta_label)
-    MV_endpoints = find_overlap(slice_data, lv_label, third_label)
+    MV_endpoints = find_overlap(slice_data, lv_label, la_label)
     return AV_endpoints, MV_endpoints
 
-def find_TV_AV_4CH(slice_data, first=2, second=3, third = 1, fourth = 4):
-    TV_endpoints = find_overlap(slice_data, first, second)
-    MV_endpoints = find_overlap(slice_data, third, fourth)
+def find_MV_TV_4CH(slice_data, lv_label=1, rv_label=3, la_label=4, ra_label=5):
+    TV_endpoints = find_overlap(slice_data, rv_label, ra_label)
+    MV_endpoints = find_overlap(slice_data, lv_label, la_label)
     return TV_endpoints, MV_endpoints
 

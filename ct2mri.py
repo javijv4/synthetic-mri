@@ -17,11 +17,11 @@ ct_path = 'data/labels.nii.gz'
 paths = {
     'clean': {
         'data': 'data/clean/',
-        'bvg': '../../bvmodelgen_urop/data/clean/'
+        'bvg': 'data/clean/'
     },
     'misaligned': {
         'data': 'data/misaligned/',
-        'bvg': '../../bvmodelgen_urop/data/misaligned/'
+        'bvg': 'data/misaligned/'
     }
 }
 
@@ -61,6 +61,7 @@ fig = fn.show_segmentations(sa_data, sa_affine, fig=None)
 fig = fn.show_segmentations(la_2ch_data, la_2ch_affine, fig=fig)
 fig = fn.show_segmentations(la_3ch_data, la_3ch_affine, fig=fig)
 fig = fn.show_segmentations(la_4ch_data, la_4ch_affine, fig=fig)
+fig.show()
 
 fn.save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
                         la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
