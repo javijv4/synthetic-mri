@@ -233,10 +233,6 @@ def save_Nifti(data, affine, file_name = None):
     header.set_qform(affine)
     nib.save(nifti_img, file_name)
 
-def save_Nifti(data, affine, file_name = None):
-    nifti_img = nib.Nifti1Image(data, affine)
-    nib.save(nifti_img, file_name)
-
 
 def calculate_centroid(label_data, label_value, affine):
     # Calculates the centroid of a specific label in the segmented data.
