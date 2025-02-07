@@ -11,6 +11,7 @@ from skimage.segmentation import find_boundaries
 from skimage.transform import resize
 from scipy.spatial import distance
 from skimage.morphology import erosion, disk, dilation
+from skimage.filters import gaussian
 
 
 
@@ -538,8 +539,8 @@ def find_overlap(slice_data, label1, label2):
     boundary2_resized = resize(boundary2, slice_data.shape, order=0, mode='constant', preserve_range=True)
     overlap_boundary = np.logical_and(boundary1_resized > 0.99, boundary2_resized > 0.99)
 
-    if not np.any(overlap_boundary):
-        raise ValueError("No overlapping boundary points found between the labels.")
+    # Smooth out the boundary so the endpoints are more accurate
+    overlap_boundary = gaussian(overlap_boundary, sigma=1)
 
     contours = find_contours(overlap_boundary, level=0.5)
     if not contours:
