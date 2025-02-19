@@ -173,15 +173,10 @@ def interpolate_image(xyz, data, data_affine):
     ijk = nib.affines.apply_affine(np.linalg.inv(data_affine), xyz)
     # round everything to integers for floating point number, indexing array doesnt take floating point
     ijk = np.round(ijk).astype(int)
-
-    # Check points outside box
     ijk[:, 0] = np.clip(ijk[:, 0], 0, data.shape[0] - 1)
     ijk[:, 1] = np.clip(ijk[:, 1], 0, data.shape[1] - 1)
     ijk[:, 2] = np.clip(ijk[:, 2], 0, data.shape[2] - 1)
-    # effectively create three arrays of cords which is x,y,z of all points we want to sample
     interpolated_data = data[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
-    # print("Transformed ijk indices:", ijk[:10])
-
     N = int(np.sqrt(len(xyz)))
     return interpolated_data.reshape(N,N)
 
@@ -200,9 +195,13 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
-        translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
-        slice_grid[:, 0] += translation[0]  # Shift x-coordinates
-        slice_grid[:, 1] += translation[1]  # Shift y-coordinates
+        # translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
+        # slice_grid[:, 0] += translation[0]  # Shift x-coordinates
+        # slice_grid[:, 1] += translation[1]  # Shift y-coordinates
+
+        slice_grid[:, 0] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
+        slice_grid[:, 1] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
+
 
         curr_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
         slice_data_misaligned.append(curr_misaligned)
@@ -252,6 +251,16 @@ def calculate_centroid(label_data, label_value, affine):
 
     centroid_voxel = np.mean(coords, axis=0)     # Calculate centroid in voxel coordinates
     centroid_real = nib.affines.apply_affine(affine, centroid_voxel)
+
+    # label_name = {1: "LV", 3: "RV", 6: "Aorta"}.get(label_value, "Unknown")
+    # fig, ax = plt.subplots(figsize=(6, 6))
+    # middle_slice_index = int(centroid_voxel[2]) 
+    # slice_data = label_data[:, :, middle_slice_index]
+    # ax.imshow(slice_data.T, cmap='gray', origin='lower')
+    # ax.scatter(centroid_voxel[0], centroid_voxel[1], color='red', s=100, label="Centroid")
+    # ax.set_title(f"Centroid of {label_name} centroid in Middle Slice")
+    # plt.show()
+
     return centroid_real
 
 def plot_cardiac_view_slice(slices_3d, number_of_slices, title=None):
@@ -354,7 +363,7 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
 
 def plot_slice_with_endpoints(axis, slice_data, title, endpoints_dict):
     axis.imshow(slice_data, cmap='gray', origin='lower')
-    axis.set_title(title)
+    axis.set_title(title, fontsize = 18)
     axis.axis('off')
 
     for endpoint_type, (endpoints, color, label) in endpoints_dict.items():
@@ -368,7 +377,7 @@ def plot_slice_with_endpoints(axis, slice_data, title, endpoints_dict):
                     axis.plot(endpoint[1], endpoint[0], marker='o', color=color, markersize=3)
     axis.legend(loc='upper right')
 
-def display_views(paths, Type, misalignment, sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=None, la_2CH_affine = None, la_3CH_affine = None, la_4CH_affine = None):
+def display_views(paths, Type, misalignment, sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=None, la_2CH_affine = None, la_3CH_affine = None, la_4CH_affine = None, ct_affine = None):
     print("\nDisplaying all views...")
     fig, axes = plt.subplots(2, 2, figsize=(12, 12))
     endpoints_summary = {}
@@ -538,9 +547,8 @@ def find_overlap(slice_data, label1, label2):
     boundary1_resized = resize(boundary1, slice_data.shape, order=0, mode='constant', preserve_range=True)
     boundary2_resized = resize(boundary2, slice_data.shape, order=0, mode='constant', preserve_range=True)
     overlap_boundary = np.logical_and(boundary1_resized > 0.99, boundary2_resized > 0.99)
-
     # Smooth out the boundary so the endpoints are more accurate
-    overlap_boundary = gaussian(overlap_boundary, sigma=1)
+    overlap_boundary = gaussian(overlap_boundary, sigma=.85)
 
     contours = find_contours(overlap_boundary, level=0.5)
     if not contours:

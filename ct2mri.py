@@ -14,7 +14,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 # User inputs
-ct_path = 'data/labels.nii.gz'
+ct_path = 'data/75_trimmed_label_maps.nii.gz'
 paths = {
     'clean': {
         'data': 'data/clean/',
@@ -34,7 +34,7 @@ inplane_spacing = 3.0       # Use this when generating the grid
 spacing = 2.0       # Use this when generating the grid
 out_of_plane_spacing = 10.0
 number_of_slices = 13
-misalignment = 1.0
+misalignment = 15
 
 # Create output directory
 if not os.path.exists(paths['clean']['data']):
@@ -42,7 +42,7 @@ if not os.path.exists(paths['clean']['data']):
 if not os.path.exists(paths['misaligned']['data']):
     os.makedirs(paths['misaligned']['data'])
 
-# Read CT image
+# Reaxd CT image
 ct_data, ct_affine, pixdim = fn.readFromNIFTI(ct_path)
 img = nib.load(ct_path)
 size = ct_data.shape
@@ -68,14 +68,14 @@ fig = fn.show_segmentations(sa_data, sa_affine, fig=None)
 fig = fn.show_segmentations(la_2ch_data, la_2ch_affine, fig=fig)
 fig = fn.show_segmentations(la_3ch_data, la_3ch_affine, fig=fig)
 fig = fn.show_segmentations(la_4ch_data, la_4ch_affine, fig=fig)
-# fig.show()
+fig.show()
 
 fn.save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
                         la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
                          la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, paths, misalignment)
 
-truth_endpoints = fn.display_views(paths, 'clean', misalignment, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine)
-misalgined_endpoints = fn.display_views(paths, 'misaligned', misalignment, la_2CH_data= la_2ch_data_misaligned, la_3CH_data=la_3ch_data_misaligned, la_4CH_data= la_4ch_data_misaligned, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine)
+truth_endpoints = fn.display_views(paths, 'clean', misalignment = 0, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
+misalgined_endpoints = fn.display_views(paths, 'misaligned', misalignment, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
 
 # TODO: Create folders for them for foreign users
 # TODO: mark the ventricles in the heart
