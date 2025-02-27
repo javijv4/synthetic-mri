@@ -23,9 +23,9 @@ paths = {
     },
 
     'misaligned': {
-        'data': 'data/misaligned/',
+        'data': 'data/misaligned/Run2/',
         # 'bvg': 'data/misaligned/'
-        'bvg' : '../../bvmodelgen_urop/data/misaligned/'
+        'bvg' : '../../bvmodelgen_urop/data/misaligned/Run2/'
     }
 }
 
@@ -34,14 +34,17 @@ inplane_spacing = 3.0       # Use this when generating the grid
 spacing = 2.0       # Use this when generating the grid
 out_of_plane_spacing = 10.0
 number_of_slices = 13
-misalignment = 15
+# misalignment = 8
 
 # Create output directory
 if not os.path.exists(paths['clean']['data']):
     os.makedirs(paths['clean']['data'])
 if not os.path.exists(paths['misaligned']['data']):
     os.makedirs(paths['misaligned']['data'])
-
+if not os.path.exists(paths['clean']['bvg']):
+    os.makedirs(paths['clean']['bvg'])
+if not os.path.exists(paths['misaligned']['bvg']):
+    os.makedirs(paths['misaligned']['bvg'])
 # Reaxd CT image
 ct_data, ct_affine, pixdim = fn.readFromNIFTI(ct_path)
 img = nib.load(ct_path)
@@ -55,53 +58,35 @@ spatial_info = fn.calculate_spatial_information(ct_data, ct_affine, labels['LV']
 sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin = fn.get_view_normal_origin(spatial_info)
 
 # Create data
-sa_data, sa_affine, sa_data_misaligned = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
-                                             ct_data, ct_affine, 13, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
-la_2ch_data, la_2ch_affine, la_2ch_data_misaligned = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
-                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
-la_3ch_data, la_3ch_affine, la_3ch_data_misaligned = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
-                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
-la_4ch_data, la_4ch_affine, la_4ch_data_misaligned = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
-                                                     ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
 
-fig = fn.show_segmentations(sa_data, sa_affine, fig=None)
-fig = fn.show_segmentations(la_2ch_data, la_2ch_affine, fig=fig)
-fig = fn.show_segmentations(la_3ch_data, la_3ch_affine, fig=fig)
-fig = fn.show_segmentations(la_4ch_data, la_4ch_affine, fig=fig)
-fig.show()
 
-fn.save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
-                        la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
-                         la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, paths, misalignment)
+# for misalignment in np.arange(.9, .9 , 0.25):
+for misalignment in [6.75]:
+    print("Currently Processing level", misalignment, " misalignment")    
+    sa_data, sa_affine, sa_data_misaligned = fn.generate_scan_slices(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, 
+                                                ct_data, ct_affine, 13, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
+    la_2ch_data, la_2ch_affine, la_2ch_data_misaligned = fn.generate_scan_slices(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, 
+                                                        ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
+    la_3ch_data, la_3ch_affine, la_3ch_data_misaligned = fn.generate_scan_slices(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, 
+                                                        ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
+    la_4ch_data, la_4ch_affine, la_4ch_data_misaligned = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
+                                                        ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
 
-truth_endpoints = fn.display_views(paths, 'clean', misalignment = 0, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
-misalgined_endpoints = fn.display_views(paths, 'misaligned', misalignment, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
+    # fig = fn.show_segmentations(sa_data, sa_affine, fig=None)
+    # fig = fn.show_segmentations(la_2ch_data, la_2ch_affine, fig=fig)
+    # fig = fn.show_segmentations(la_3ch_data, la_3ch_affine, fig=fig)
+    # fig = fn.show_segmentations(la_4ch_data, la_4ch_affine, fig=fig)
+    # fig.show()
 
-# TODO: Create folders for them for foreign users
-# TODO: mark the ventricles in the heart
-# TODO: create a 2D mask thats 1 on the points where the ventricles are / find valve masks
+    # fig = fn.show_segmentations(sa_data_misaligned, sa_affine, fig=None)
+    # fig = fn.show_segmentations(la_2ch_data_misaligned, la_2ch_affine, fig=fig)
+    # fig = fn.show_segmentations(la_3ch_data_misaligned, la_3ch_affine, fig=fig)
+    # fig = fn.show_segmentations(la_4ch_data_misaligned, la_4ch_affine, fig=fig)
+    # fig.show()
 
-# TODO: find valves for misaligned and aligned. and then save as nifti files 
-# TODO: Update the BVG_ folder with all the saved elements and the valve locations
-# TODO: Create individual functiions for 2ch 3ch and 4ch valve location DONE 
-# TODO: experiemtn with differnt boundaries detecitons thick vs etc  // DONE and failed :(
+    fn.save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
+                            la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
+                            la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, paths, misalignment)
 
-# TODO: In the calculate_stl_distances, create a graph with misaligment number and the erorr calculated 
-# TODO: Create a clean and a misaligned MRI scan from my code and then save those to BVG, and then run the BVG code to get STL files and then plot the difference 
-
-'''
-Thick Thick - what we had
-Thick subpixel - no overlapping boundary
-thick outher - way off
-thick inner - way off
-
-outer outer - way off
-outer subpixel - no overlapping boundary
-outer inner -way off
-
-inner inner - no overlapping boundary
-inner subpixel - no overlapping boundary
-
-subpixel subpixel - no overlapping boundary
-
-'''
+    truth_endpoints = fn.display_views(paths, 'clean', misalignment = 0, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
+    misalgined_endpoints = fn.display_views(paths, 'misaligned', misalignment, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)

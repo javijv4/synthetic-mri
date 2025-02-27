@@ -195,12 +195,12 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
-        # translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
-        # slice_grid[:, 0] += translation[0]  # Shift x-coordinates
-        # slice_grid[:, 1] += translation[1]  # Shift y-coordinates
+        translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
+        slice_grid[:, 0] += translation[0]  # Shift x-coordinates
+        slice_grid[:, 1] += translation[1]  # Shift y-coordinates
 
-        slice_grid[:, 0] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
-        slice_grid[:, 1] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
+        # slice_grid[:, 0] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
+        # slice_grid[:, 1] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
 
 
         curr_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
@@ -309,6 +309,7 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
 def apply_misalignment(grid_points, transformation_matrix, spacing, file_name, misalignment_factor=0.1):
     npoints = int(np.sqrt(len(grid_points))) 
     grid_points = grid_points.reshape((npoints, npoints, 3)) 
+    
 
     misaligned_planes = []
     for z_slice in grid_points:
@@ -440,7 +441,7 @@ def display_views(paths, Type, misalignment, sa_data=None, la_2CH_data=None, la_
         axes[1, 1].axis('off')
 
     plt.tight_layout()
-    plt.show()
+    # plt.show()
     return endpoints_summary
 
 import plotly.graph_objects as go
