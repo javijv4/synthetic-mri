@@ -72,17 +72,9 @@ for misalignment in [6.75]:
     la_4ch_data, la_4ch_affine, la_4ch_data_misaligned = fn.generate_scan_slices(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, 
                                                         ct_data, ct_affine, 1, out_of_plane_spacing, plotOn = False, misalignment= misalignment)
 
-    # fig = fn.show_segmentations(sa_data, sa_affine, fig=None)
-    # fig = fn.show_segmentations(la_2ch_data, la_2ch_affine, fig=fig)
-    # fig = fn.show_segmentations(la_3ch_data, la_3ch_affine, fig=fig)
-    # fig = fn.show_segmentations(la_4ch_data, la_4ch_affine, fig=fig)
-    # fig.show()
+    fn.display_segmentations(datasets = [sa_data, la_2ch_data, la_3ch_data, la_4ch_data], affines = [sa_affine, la_2ch_affine, la_3ch_affine, la_4ch_affine])
+    fn.display_segmentations(datasets = [sa_data_misaligned, la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned], affines = [sa_affine, la_2ch_affine, la_3ch_affine, la_4ch_affine])
 
-    # fig = fn.show_segmentations(sa_data_misaligned, sa_affine, fig=None)
-    # fig = fn.show_segmentations(la_2ch_data_misaligned, la_2ch_affine, fig=fig)
-    # fig = fn.show_segmentations(la_3ch_data_misaligned, la_3ch_affine, fig=fig)
-    # fig = fn.show_segmentations(la_4ch_data_misaligned, la_4ch_affine, fig=fig)
-    # fig.show()
 
     fn.save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
                             la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 

@@ -190,7 +190,6 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
     slice_datas = []
     slice_data_misaligned = []
     for slice_index in range(number_of_slices):
-        # Find the origin of the slice by moving along normal vector from centroid
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
         slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
@@ -202,13 +201,12 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         # slice_grid[:, 0] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
         # slice_grid[:, 1] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
 
-
         curr_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
         slice_data_misaligned.append(curr_misaligned)
         slice_affines.append(slice_affine)
         slice_datas.append(slice_data)
 
-    scan_data = np.dstack(slice_datas)    # dstack stacks arrays along third dimension, depth
+    scan_data = np.dstack(slice_datas)
     slice_data_misaligned = np.dstack(slice_data_misaligned)
     if number_of_slices == 1:
         scan_affine = slice_affines[0]
@@ -220,8 +218,83 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         scan_affine = base_affine
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "2 Chamber View")
-    return scan_data, scan_affine, slice_data_misaligned #original_coordinates, shifted_coordinates
+    return scan_data, scan_affine, slice_data_misaligned 
 
+def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
+                         plotOn=False, normal_perturbation = 5):
+    def perturb_normal(normal, max_angle_deg):
+        """Perturbs the normal vector by adding small noise and re-normalizing it."""
+        max_angle_rad = np.radians(max_angle_deg)  # Convert degrees to radians
+        perturbation = np.random.uniform(-max_angle_rad, max_angle_rad, size=3)  # Small random noise
+        perturbed_normal = normal + perturbation  # Apply noise
+        return perturbed_normal / np.linalg.norm(perturbed_normal)  # Normalize to maintain unit vector
+
+    # Perturb the normal vector ONCE for the entire view
+    perturbed_normal = perturb_normal(normal, normal_perturbation)
+
+    slice_affines = []
+    slice_datas = []
+
+    for slice_index in range(number_of_slices):
+        # Compute slice origin using the perturbed normal vector
+        slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * perturbed_normal
+        slice_grid, slice_affine = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
+        slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
+
+        slice_affines.append(slice_affine)
+        slice_datas.append(slice_data)
+
+    scan_data = np.dstack(slice_datas)
+
+    if number_of_slices == 1:
+        scan_affine = slice_affines[0]
+    else:
+        base_affine = slice_affines[0].copy()
+        slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3])
+        base_affine[:3, 2] = slice_direction[:3]
+        base_affine[:3, 3] = slice_affines[0][:3, 3]
+        scan_affine = base_affine
+
+    if plotOn:
+        plot_cardiac_view_slice(scan_data, number_of_slices, "MRI Planning Error Simulation")
+
+    return scan_data, scan_affine
+
+def generate_scan_slices_breathHolding(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
+                         plotOn=False, breath_holding_error=0.5):
+    slice_affines = []
+    slice_datas = []
+
+    for slice_index in range(number_of_slices):
+        # Compute the base slice origin (before perturbation)
+        slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
+        
+        # Introduce a unique translation per slice to simulate breath-holding shifts
+        centroid_perturbation = np.random.uniform(-breath_holding_error, breath_holding_error, size=3)  # Random shift in x, y, z
+        perturbed_centroid = slice_origin + centroid_perturbation  # Move the centroid
+
+        # Compute the grid using the perturbed centroid (but normal remains unchanged)
+        slice_grid, slice_affine = grid_in_plane(perturbed_centroid, normal, spacing, plane_size)
+        slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
+
+        slice_affines.append(slice_affine)
+        slice_datas.append(slice_data)
+
+    scan_data = np.dstack(slice_datas)
+
+    if number_of_slices == 1:
+        scan_affine = slice_affines[0]
+    else:
+        base_affine = slice_affines[0].copy()
+        slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3])
+        base_affine[:3, 2] = slice_direction[:3]
+        base_affine[:3, 3] = slice_affines[0][:3, 3]
+        scan_affine = base_affine
+
+    if plotOn:
+        plot_cardiac_view_slice(scan_data, number_of_slices, "Breath-Holding Error Simulation")
+
+    return scan_data, scan_affine
 
 def save_Nifti(data, affine, file_name = None):
     new_affine = affine.copy()
@@ -584,3 +657,9 @@ def find_MV_TV_4CH(slice_data, lv_label=1, rv_label=3, la_label=4, ra_label=5):
     MV_endpoints = find_overlap(slice_data, lv_label, la_label)
     return TV_endpoints, MV_endpoints
 
+
+def display_segmentations(fn, datasets, affines):
+    fig = None
+    for data, affine in zip(datasets, affines):
+        fig = fn.show_segmentations(data, affine, fig=fig)
+    fig.show()
