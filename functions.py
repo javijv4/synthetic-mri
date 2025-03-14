@@ -12,7 +12,8 @@ from skimage.transform import resize
 from scipy.spatial import distance
 from skimage.morphology import erosion, disk, dilation
 from skimage.filters import gaussian
-
+import plotly.graph_objects as go
+import plotly.io as pio
 
 
 def readFromNIFTI(segName, correct_ras=True):
@@ -34,7 +35,6 @@ def readFromNIFTI(segName, correct_ras=True):
 
     return (seg, transform, pixdim)
 
-
 def calculate_spatial_information(label_data, affine, LV_LABEL=1, RV_LABEL=3, AORTA_LABEL=6):
     lv_centroid = calculate_centroid(label_data, LV_LABEL, affine)
     rv_centroid = calculate_centroid(label_data, RV_LABEL, affine)
@@ -49,7 +49,6 @@ def calculate_spatial_information(label_data, affine, LV_LABEL=1, RV_LABEL=3, AO
     }
 
     return spatial_info
-
 
 def get_view_normal_origin(spatial_info):
     # SA
@@ -83,7 +82,6 @@ def get_view_normal_origin(spatial_info):
     la_4ch_normal_origin = la_4ch_normal, la_4ch_origin
 
     return sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin
-
 
 def grid_in_plane(origin, normal, spacing, plane_size):
     """
@@ -157,7 +155,6 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
     return points, A
 
-
 def interpolate_image(xyz, data, data_affine):
     """
     Interpolates the given image data based on the provided coordinates.
@@ -179,7 +176,6 @@ def interpolate_image(xyz, data, data_affine):
     interpolated_data = data[ijk[:, 0], ijk[:, 1], ijk[:, 2]]
     N = int(np.sqrt(len(xyz)))
     return interpolated_data.reshape(N,N)
-
 
 def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
                          plotOn=False, misalignment = .1):
@@ -223,20 +219,17 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
 def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
                          plotOn=False, normal_perturbation = 5):
     def perturb_normal(normal, max_angle_deg):
-        """Perturbs the normal vector by adding small noise and re-normalizing it."""
-        max_angle_rad = np.radians(max_angle_deg)  # Convert degrees to radians
-        perturbation = np.random.uniform(-max_angle_rad, max_angle_rad, size=3)  # Small random noise
-        perturbed_normal = normal + perturbation  # Apply noise
-        return perturbed_normal / np.linalg.norm(perturbed_normal)  # Normalize to maintain unit vector
+        max_angle_rad = np.radians(max_angle_deg)  
+        perturbation = np.random.uniform(-max_angle_rad, max_angle_rad, size=3) 
+        perturbed_normal = normal + perturbation 
+        return perturbed_normal / np.linalg.norm(perturbed_normal) 
 
-    # Perturb the normal vector ONCE for the entire view
     perturbed_normal = perturb_normal(normal, normal_perturbation)
 
     slice_affines = []
     slice_datas = []
 
     for slice_index in range(number_of_slices):
-        # Compute slice origin using the perturbed normal vector
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * perturbed_normal
         slice_grid, slice_affine = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
@@ -266,14 +259,11 @@ def generate_scan_slices_breathHolding(centroid, normal, spacing, plane_size, ct
     slice_datas = []
 
     for slice_index in range(number_of_slices):
-        # Compute the base slice origin (before perturbation)
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
         
-        # Introduce a unique translation per slice to simulate breath-holding shifts
         centroid_perturbation = np.random.uniform(-breath_holding_error, breath_holding_error, size=3)  # Random shift in x, y, z
-        perturbed_centroid = slice_origin + centroid_perturbation  # Move the centroid
+        perturbed_centroid = slice_origin + centroid_perturbation 
 
-        # Compute the grid using the perturbed centroid (but normal remains unchanged)
         slice_grid, slice_affine = grid_in_plane(perturbed_centroid, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
@@ -305,7 +295,6 @@ def save_Nifti(data, affine, file_name = None):
     header = nifti_img.header
     header.set_qform(affine)
     nib.save(nifti_img, file_name)
-
 
 def calculate_centroid(label_data, label_value, affine):
     # Calculates the centroid of a specific label in the segmented data.
@@ -378,7 +367,6 @@ def calculate_lv_long_axis(label_data, lv_label, affine):
     long_axis_real = long_axis_real / np.linalg.norm(long_axis_real)
     return long_axis_real
 
-
 def apply_misalignment(grid_points, transformation_matrix, spacing, file_name, misalignment_factor=0.1):
     npoints = int(np.sqrt(len(grid_points))) 
     grid_points = grid_points.reshape((npoints, npoints, 3)) 
@@ -400,11 +388,6 @@ def apply_misalignment(grid_points, transformation_matrix, spacing, file_name, m
 
     return grid_points_misaligned
 
-
-
-"""  PLOTTING FUNCTIONS  """
-
-#  Trying to add a slider that controls the depth of the view being displayed using Matplotlib Slider
 def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_size=100, spacing=1.0, num_slices=10):
     slice_data_list = []
     offsets = np.linspace(-plane_size / 2, plane_size / 2, num_slices)
@@ -433,7 +416,6 @@ def plot_interactive_view(label_data, affine, lv_centroid, lv_long_axis, plane_s
 
     slider.on_changed(update)  
     plt.show()
-
 
 def plot_slice_with_endpoints(axis, slice_data, title, endpoints_dict):
     axis.imshow(slice_data, cmap='gray', origin='lower')
@@ -517,8 +499,6 @@ def display_views(paths, Type, misalignment, sa_data=None, la_2CH_data=None, la_
     # plt.show()
     return endpoints_summary
 
-import plotly.graph_objects as go
-import plotly.io as pio
 def show_point_cloud(points, fig=None, color=None, size=10, cmap='Viridis',
                      opacity=1, marker_symbol='circle', label=None, showscale=False,
                      cmin = None, cmax = None):
@@ -540,7 +520,6 @@ def show_point_cloud(points, fig=None, color=None, size=10, cmap='Viridis',
                       name = label
         )
     return fig
-
     
 def show_segmentations(data, affine, fig=None, background=False):
     nlabels = np.unique(data)
@@ -575,7 +554,6 @@ def show_segmentations(data, affine, fig=None, background=False):
     if not background:
         fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
     return fig
-
 
 def save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine,
                          la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
@@ -633,7 +611,6 @@ def find_overlap(slice_data, label1, label2):
     endpoints = find_furthest_points(largest_contour)
     return endpoints
 
-
 def create_valve_array(array, endpoints, endpoint_value):
     for point in endpoints:
         if point is not None:  
@@ -656,7 +633,6 @@ def find_MV_TV_4CH(slice_data, lv_label=1, rv_label=3, la_label=4, ra_label=5):
     TV_endpoints = find_overlap(slice_data, rv_label, ra_label)
     MV_endpoints = find_overlap(slice_data, lv_label, la_label)
     return TV_endpoints, MV_endpoints
-
 
 def display_segmentations(fn, datasets, affines):
     fig = None
