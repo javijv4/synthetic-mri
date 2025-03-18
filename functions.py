@@ -241,7 +241,7 @@ def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data
 
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * perturbed_normal
-        slice_grid, slice_affine = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
+        slice_grid, slice_affine, _ = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         slice_affines.append(slice_affine)
