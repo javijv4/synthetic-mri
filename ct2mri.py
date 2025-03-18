@@ -92,12 +92,11 @@ for misalignment in [6.75]:
     # fn.display_segmentations(datasets = [sa_data, la_2ch_data, la_3ch_data, la_4ch_data], affines = [sa_affine, la_2ch_affine, la_3ch_affine, la_4ch_affine])
     # fn.display_segmentations(datasets = [sa_data_misaligned, la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned], affines = [sa_affine, la_2ch_affine, la_3ch_affine, la_4ch_affine])
 
-    fn.save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine, 
-                            la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
-                            la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, paths, misalignment)
-    fn.save_all_nifti_files(sa_data_breath, sa_affine_breath, la_2ch_data_breath, la_2ch_affine_breath, 
-                            la_3ch_data_breath, la_3ch_affine_breath, la_4ch_data_breath, la_4ch_affine_breath, sa_data_misaligned, 
-                            la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, paths, misalignment)
+    fn.save_truth_filees(sa_data, sa_affine, la_2ch_data, la_2ch_affine, la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, paths)
+    fn.save_error_files(sa_data_misaligned, sa_affine, la_2ch_data_misaligned, la_2ch_affine, la_3ch_data_misaligned, la_3ch_affine, la_4ch_data_misaligned, la_4ch_affine, paths, misalignment, 'misaligned')
+    fn.save_error_files(sa_data_breath, sa_affine_breath, la_2ch_data_breath, la_2ch_affine_breath, la_3ch_data_breath, la_3ch_affine_breath, la_4ch_data_breath, la_4ch_affine_breath, paths, misalignment, 'breath')
+    fn.save_error_files(sa_data_MRIerror, sa_affine_MRIerror, la_2ch_data_MRIerror, la_2ch_affine_MRIerror, la_3ch_data_MRIerror, la_3ch_affine_MRIerror, la_4ch_data_MRIerror, la_4ch_affine_MRIerror, paths, misalignment, 'MRI')
+
 
     truth_endpoints = fn.display_views(paths, 'clean', misalignment = 0, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
     misalgined_endpoints = fn.display_views(paths, 'misaligned', misalignment, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)

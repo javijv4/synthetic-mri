@@ -576,29 +576,31 @@ def show_segmentations(data, affine, fig=None, background=False):
         fig.update_scenes(xaxis_visible=False, yaxis_visible=False,zaxis_visible=False )
     return fig
 
-def save_all_nifti_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine,
-                         la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, sa_data_misaligned, 
-                         la_2ch_data_misaligned, la_3ch_data_misaligned, la_4ch_data_misaligned, 
-                         paths, misalignment):
+def save_truth_filees(sa_data, sa_affine, la_2ch_data, la_2ch_affine,
+                         la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, paths):
     save_Nifti(sa_data, sa_affine, paths['clean']['data'] + 'SA.nii.gz')
     save_Nifti(la_2ch_data, la_2ch_affine, paths['clean']['data'] + '2CH.nii.gz')
     save_Nifti(la_3ch_data, la_3ch_affine, paths['clean']['data'] + '3CH.nii.gz')
     save_Nifti(la_4ch_data, la_4ch_affine, paths['clean']['data'] + '4CH.nii.gz')
-
-    save_Nifti(sa_data_misaligned, sa_affine, paths['misaligned']['data'] + f'SA_misaligned_{misalignment:.2f}.nii.gz')
-    save_Nifti(la_2ch_data_misaligned, la_2ch_affine, paths['misaligned']['data'] + f'2CH_misaligned_{misalignment:.2f}.nii.gz')
-    save_Nifti(la_3ch_data_misaligned, la_3ch_affine, paths['misaligned']['data'] + f'3CH_misaligned_{misalignment:.2f}.nii.gz')
-    save_Nifti(la_4ch_data_misaligned, la_4ch_affine, paths['misaligned']['data'] + f'4CH_misaligned_{misalignment:.2f}.nii.gz')
 
     save_Nifti(sa_data, sa_affine, paths['clean']['bvg'] + 'SA.nii.gz')
     save_Nifti(la_2ch_data, la_2ch_affine, paths['clean']['bvg'] + '2CH.nii.gz')
     save_Nifti(la_3ch_data, la_3ch_affine, paths['clean']['bvg'] + '3CH.nii.gz')
     save_Nifti(la_4ch_data, la_4ch_affine, paths['clean']['bvg'] + '4CH.nii.gz')
 
-    save_Nifti(sa_data_misaligned, sa_affine, paths['misaligned']['bvg'] + f'SA_misaligned_{misalignment:.2f}.nii.gz')
-    save_Nifti(la_2ch_data_misaligned, la_2ch_affine, paths['misaligned']['bvg'] + f'2CH_misaligned_{misalignment:.2f}.nii.gz')
-    save_Nifti(la_3ch_data_misaligned, la_3ch_affine, paths['misaligned']['bvg'] + f'3CH_misaligned_{misalignment:.2f}.nii.gz')
-    save_Nifti(la_4ch_data_misaligned, la_4ch_affine, paths['misaligned']['bvg'] + f'4CH_misaligned_{misalignment:.2f}.nii.gz')
+def save_error_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine,
+                         la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine,
+                         paths, misalignment, type):
+
+    save_Nifti(sa_data, sa_affine, paths[type]['data'] + f'SA_{type}_{misalignment:.2f}.nii.gz')
+    save_Nifti(la_2ch_data, la_2ch_affine, paths[type]['data'] + f'2CH_{type}_{misalignment:.2f}.nii.gz')
+    save_Nifti(la_3ch_data, la_3ch_affine, paths[type]['data'] + f'3CH_{type}_{misalignment:.2f}.nii.gz')
+    save_Nifti(la_4ch_data, la_4ch_affine, paths[type]['data'] + f'4CH_{type}_{misalignment:.2f}.nii.gz')
+
+    save_Nifti(sa_data, sa_affine, paths[type]['bvg'] + f'SA_{type}_{misalignment:.2f}.nii.gz')
+    save_Nifti(la_2ch_data, la_2ch_affine, paths[type]['bvg'] + f'2CH_{type}_{misalignment:.2f}.nii.gz')
+    save_Nifti(la_3ch_data, la_3ch_affine, paths[type]['bvg'] + f'3CH_{type}_{misalignment:.2f}.nii.gz')
+    save_Nifti(la_4ch_data, la_4ch_affine, paths[type]['bvg'] + f'4CH_{type}_{misalignment:.2f}.nii.gz')
 
 def find_furthest_points(contour):
     max_distance = 0
