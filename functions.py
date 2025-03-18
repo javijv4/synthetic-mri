@@ -83,12 +83,7 @@ def get_view_normal_origin(spatial_info):
 
     return sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin
 
-def grid_in_plane(origin, normal, spacing, plane_size):
-    """
-    Generates a grid of points in a plane defined by an origin and a normal vector.
-    Note that the grid is centered at the origin and the points are spaced the same in both in-plane directions.
-    You want to make sure the grid is large enough to cover the entire image (plane_size argument).
- """
+def grid_in_plane(origin, normal, spacing, plane_size, perturbation = None):
     normal = normal / np.linalg.norm(normal)
 
     # Use plane vector if provided, otherwise create one
@@ -135,13 +130,22 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     A[:3, :3] = Q@S
     A[:3, 3] = t
 
+    if perturbation is not None:
+        perturbed_origin = origin + perturbation
+        t_shifted = perturbed_origin - ijk_rot_scaled_center
+    else:
+        t_shifted = t  
+
+    A_shifted = np.eye(4)
+    A_shifted[:3, :3] = Q @ S
+    A_shifted[:3, 3] = t_shifted
     # Compute 3D coordinates for each point on the
     #  creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
     # grid x and y determine x and y cords while u and v orient cords in 3d space to essentially create grind
     points = (A[:3, :3] @ ijk.T).T + A[:3, 3] # This should be the same as xyz
     # TODO: recaclcualkte affine using the correct points
     #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
-    return points, A
+    return points, A, A_shifted
 
 def interpolate_image(xyz, data, data_affine):
     """
@@ -165,33 +169,20 @@ def interpolate_image(xyz, data, data_affine):
     N = int(np.sqrt(len(xyz)))
     return interpolated_data.reshape(N,N)
 
-def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
-                         plotOn=False, misalignment = .1):
-    
-    # Generate data for all slices 
-    # slice_affines = np.zeros((number_of_slices, 4, 4))
+def generate_scan_slices_main(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False):
     slice_affines = []
     slice_datas = []
-    slice_data_misaligned = []
+
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
-        slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
+        slice_grid, slice_affine, _ = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
-        translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)  # x, y shifts
-        slice_grid[:, 0] += translation[0]  # Shift x-coordinates
-        slice_grid[:, 1] += translation[1]  # Shift y-coordinates
-
-        # slice_grid[:, 0] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
-        # slice_grid[:, 1] += np.random.uniform(-misalignment * spacing, misalignment * spacing, size=slice_grid.shape[0])
-
-        curr_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
-        slice_data_misaligned.append(curr_misaligned)
         slice_affines.append(slice_affine)
         slice_datas.append(slice_data)
 
     scan_data = np.dstack(slice_datas)
-    slice_data_misaligned = np.dstack(slice_data_misaligned)
+
     if number_of_slices == 1:
         scan_affine = slice_affines[0]
     else:
@@ -200,17 +191,48 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
         base_affine[:3, 2] = slice_direction[:3]
         base_affine[:3, 3] = slice_affines[0][:3, 3]
         scan_affine = base_affine
+
     if plotOn:
-        plot_cardiac_view_slice(scan_data, number_of_slices, "2 Chamber View")
-    return scan_data, scan_affine, slice_data_misaligned 
+        plot_cardiac_view_slice(scan_data, number_of_slices, "Scan Data Without Misalignment")
+
+    return scan_data, scan_affine
+
+def generate_scan_slices_misaligned(scan_data, centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, misalignment=0.1):
+    slice_data_misaligned = []
+
+    for slice_index in range(number_of_slices):
+        slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
+        slice_grid, _, _ = grid_in_plane(slice_origin, normal, spacing, plane_size)
+
+        translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)
+        slice_grid[:, 0] += translation[0]
+        slice_grid[:, 1] += translation[1]
+
+        curr_misaligned = interpolate_image(slice_grid, ct_data, ct_affine)
+        slice_data_misaligned.append(curr_misaligned)
+
+    slice_data_misaligned = np.dstack(slice_data_misaligned)
+
+    return slice_data_misaligned
 
 def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
                          plotOn=False, normal_perturbation = 5):
     def perturb_normal(normal, max_angle_deg):
-        # max_angle_rad = np.radians(max_angle_deg)  
-        perturbation = np.random.uniform(-normal_perturbation, normal_perturbation, size=3) 
-        perturbed_normal = normal + perturbation 
-        return perturbed_normal / np.linalg.norm(perturbed_normal) 
+        max_angle_rad = np.radians(max_angle_deg)  
+
+        random_axis = np.random.randn(3) 
+        random_axis -= random_axis.dot(normal) * normal
+        random_axis /= np.linalg.norm(random_axis)
+
+        theta = np.random.uniform(-max_angle_rad, max_angle_rad)
+
+        K = np.array([[0, -random_axis[2], random_axis[1]],
+                      [random_axis[2], 0, -random_axis[0]],
+                      [-random_axis[1], random_axis[0], 0]])
+        R = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
+
+        perturbed_normal = R @ normal
+        return perturbed_normal / np.linalg.norm(perturbed_normal)
 
     perturbed_normal = perturb_normal(normal, normal_perturbation)
 
@@ -244,35 +266,46 @@ def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data
 def generate_scan_slices_breathHolding(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
                          plotOn=False, breath_holding_error=0.5):
     slice_affines = []
+    shifted_affines = []
     slice_datas = []
 
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
         
         centroid_perturbation = np.random.uniform(-breath_holding_error, breath_holding_error, size=3)  # Random shift in x, y, z
-        perturbed_centroid = slice_origin + centroid_perturbation 
 
-        slice_grid, slice_affine = grid_in_plane(perturbed_centroid, normal, spacing, plane_size)
+        slice_grid, slice_affine, shifted_affine = grid_in_plane(slice_origin, normal, spacing, plane_size, perturbation=centroid_perturbation)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         slice_affines.append(slice_affine)
+        shifted_affines.append(shifted_affine)
         slice_datas.append(slice_data)
 
     scan_data = np.dstack(slice_datas)
 
     if number_of_slices == 1:
         scan_affine = slice_affines[0]
+        scan_affine_shifted = shifted_affines[0]
     else:
         base_affine = slice_affines[0].copy()
+        base_affine_shifted = shifted_affines[0].copy()
+
         slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3])
+        slice_direction_shifted = (shifted_affines[1][:, 3] - shifted_affines[0][:, 3])
+
         base_affine[:3, 2] = slice_direction[:3]
         base_affine[:3, 3] = slice_affines[0][:3, 3]
+
+        base_affine_shifted[:3, 2] = slice_direction_shifted[:3]
+        base_affine_shifted[:3, 3] = shifted_affines[0][:3, 3]
+
         scan_affine = base_affine
+        scan_affine_shifted = base_affine_shifted
 
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "Breath-Holding Error Simulation")
 
-    return scan_data, scan_affine
+    return scan_data, scan_affine, scan_affine_shifted
 
 def save_Nifti(data, affine, file_name = None):
     new_affine = affine.copy()
