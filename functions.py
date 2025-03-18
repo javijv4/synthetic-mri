@@ -88,16 +88,7 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     Generates a grid of points in a plane defined by an origin and a normal vector.
     Note that the grid is centered at the origin and the points are spaced the same in both in-plane directions.
     You want to make sure the grid is large enough to cover the entire image (plane_size argument).
-    Args:
-        origin (numpy.ndarray): A 3-element numpy array representing the coordinates of the origin point of the plane.
-        normal (numpy.ndarray): A 3-element numpy array representing the normal vector of the plane.
-        plane_size (float): The size of the plane in pixel units
-    Returns:
-        numpy.ndarray: A 2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
-    """
-    # NORMAL VECTOR IS PERPENDICULAR TO A PLANE OR A SURFACE, and its used to define orientation of plane
-    # orthogonal vector check if two VECTORS are perpendicular to each other: if a dot product b = 0 they are orthogonal
-    # conver to normal unit vector using numpys built in functions
+ """
     normal = normal / np.linalg.norm(normal)
 
     # Use plane vector if provided, otherwise create one
@@ -108,9 +99,6 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     u = u / np.linalg.norm(u)   # Normalizing vector
     basis_xyz = np.column_stack((u, v, normal)) # Create basis vectors for the plane
 
-    #linespace generates sequence of of evenly spaced numbers of range
-    # creates planesize amount of evenly spaced values from -half_size to half_size
-    # creates a 1d array of evenly spaced points
     npoints = int(np.ceil(plane_size / spacing)) + 1  # Calculate number of points to cover plane_size
     lin_space = np.arange(npoints)                    # this ensures the spacing is correct
 
@@ -151,7 +139,7 @@ def grid_in_plane(origin, normal, spacing, plane_size):
     #  creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
     # grid x and y determine x and y cords while u and v orient cords in 3d space to essentially create grind
     points = (A[:3, :3] @ ijk.T).T + A[:3, 3] # This should be the same as xyz
-
+    # TODO: recaclcualkte affine using the correct points
     #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
     return points, A
 
@@ -219,8 +207,8 @@ def generate_scan_slices(centroid, normal, spacing, plane_size, ct_data, ct_affi
 def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
                          plotOn=False, normal_perturbation = 5):
     def perturb_normal(normal, max_angle_deg):
-        max_angle_rad = np.radians(max_angle_deg)  
-        perturbation = np.random.uniform(-max_angle_rad, max_angle_rad, size=3) 
+        # max_angle_rad = np.radians(max_angle_deg)  
+        perturbation = np.random.uniform(-normal_perturbation, normal_perturbation, size=3) 
         perturbed_normal = normal + perturbation 
         return perturbed_normal / np.linalg.norm(perturbed_normal) 
 
