@@ -241,7 +241,7 @@ def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data
 
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * perturbed_normal
-        slice_grid, slice_affine, _ = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
+        slice_grid, _, slice_affine = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         slice_affines.append(slice_affine)
@@ -461,7 +461,7 @@ def display_views(paths, Type, misalignment, sa_data=None, la_2CH_data=None, la_
 
     if sa_data is not None:    # Short-Axis View
         middle_index = sa_data.shape[-1] // 2
-        plot_slice_with_endpoints( axes[0, 0], sa_data[:, :, middle_index], "Short-Axis View (Middle Slice)", {})
+        plot_slice_with_endpoints(axes[0, 0], sa_data[:, :, middle_index], "Short-Axis View (Middle Slice)", {})
     else:
         print("Failed to generate short-axis view.")
         axes[0, 0].axis('off')
@@ -657,8 +657,8 @@ def find_MV_TV_4CH(slice_data, lv_label=1, rv_label=3, la_label=4, ra_label=5):
     MV_endpoints = find_overlap(slice_data, lv_label, la_label)
     return TV_endpoints, MV_endpoints
 
-def display_segmentations(fn, datasets, affines):
+def display_segmentations(datasets, affines):
     fig = None
     for data, affine in zip(datasets, affines):
-        fig = fn.show_segmentations(data, affine, fig=fig)
+        fig = show_segmentations(data, affine, fig=fig)
     fig.show()
