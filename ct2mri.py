@@ -65,7 +65,7 @@ sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_orig
 misalignment_array = [1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75,4,4.25,4.5,4.75,5,5.25,5.5,5.75,6,6.25,6.5,6.75,7,7.25,7.5,7.75,8]
 # Create data
 
-
+misalignment_array = [8]
 # for misalignment in np.arange(.9, .9 , 0.25):
 for misalignment in misalignment_array:
     print("Currently Processing level", misalignment, " misalignment")    
@@ -79,10 +79,10 @@ for misalignment in misalignment_array:
     # la_3ch_data_misaligned = fn.generate_scan_slices_misaligned(la_3ch_data, la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 1, out_of_plane_spacing, misalignment)
     # la_4ch_data_misaligned = fn.generate_scan_slices_misaligned(la_4ch_data, la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 1, out_of_plane_spacing, misalignment)
     
-    sa_data_breath, _, sa_affine_breath = fn.generate_scan_slices_breathHolding(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 13, out_of_plane_spacing, False, misalignment)
-    la_2ch_data_breath, _, la_2ch_affine_breath = fn.generate_scan_slices_breathHolding(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size,  ct_data, ct_affine, 1, out_of_plane_spacing, False, misalignment)
-    la_3ch_data_breath, _, la_3ch_affine_breath = fn.generate_scan_slices_breathHolding(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 1, out_of_plane_spacing, False, misalignment)
-    la_4ch_data_breath, _, la_4ch_affine_breath = fn.generate_scan_slices_breathHolding(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 1, out_of_plane_spacing, False, misalignment)
+    sa_data_breath, sa_affine_breath = fn.generate_scan_slices_breathHolding(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 13, out_of_plane_spacing, False, misalignment)
+    la_2ch_data_breath, la_2ch_affine_breath = fn.generate_scan_slices_breathHolding(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size,  ct_data, ct_affine, 1, out_of_plane_spacing, False, misalignment)
+    la_3ch_data_breath, la_3ch_affine_breath = fn.generate_scan_slices_breathHolding(la_3ch_normal_origin[1], la_3ch_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 1, out_of_plane_spacing, False, misalignment)
+    la_4ch_data_breath, la_4ch_affine_breath = fn.generate_scan_slices_breathHolding(la_4ch_normal_origin[1], la_4ch_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 1, out_of_plane_spacing, False, misalignment)
 
     # sa_data_MRIerror, sa_affine_MRIerror = fn.generate_scan_slices_MRIerror(sa_normal_origin[1], sa_normal_origin[0], inplane_spacing, plane_size,ct_data, ct_affine, 13, out_of_plane_spacing, False, misalignment)
     # la_2ch_data_MRIerror, la_2ch_affine_MRIerror = fn.generate_scan_slices_MRIerror(la_2ch_normal_origin[1], la_2ch_normal_origin[0], inplane_spacing, plane_size, ct_data, ct_affine, 1, out_of_plane_spacing, False, misalignment)
@@ -97,11 +97,11 @@ for misalignment in misalignment_array:
 
     # fn.save_truth_filees(sa_data, sa_affine, la_2ch_data, la_2ch_affine, la_3ch_data, la_3ch_affine, la_4ch_data, la_4ch_affine, paths)
     # fn.save_error_files(sa_data_MRIerrorla_2ch_data_MRIerror, sa_affine, la_2ch_data_misaligned, la_2ch_affine, la_3ch_data_misaligned, la_3ch_affine, la_4ch_data_misaligned, la_4ch_affine, paths, misalignment, 'misaligned')
-    fn.save_error_files(sa_data_breath, sa_affine_breath, la_2ch_data_breath, la_2ch_affine_breath, la_3ch_data_breath, la_3ch_affine_breath, la_4ch_data_breath, la_4ch_affine_breath, paths, misalignment, 'breath')
+    # fn.save_error_files(sa_data_breath, sa_affine_breath, la_2ch_data_breath, la_2ch_affine_breath, la_3ch_data_breath, la_3ch_affine_breath, la_4ch_data_breath, la_4ch_affine_breath, paths, misalignment, 'breath')
     # fn.save_error_files(sa_data_MRIerror, sa_affine_MRIerror, la_2ch_data_MRIerror, la_2ch_affine_MRIerror, la_3ch_data_MRIerror, la_3ch_affine_MRIerror, la_4ch_data_MRIerror, la_4ch_affine_MRIerror, paths, misalignment, 'MRI')
 
 
     # truth_endpoints = fn.display_views(paths, 'clean', misalignment = 0, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
     # misalgined_endpoints = fn.display_views(paths, 'misaligned', misalignment, sa_data= sa_data, la_2CH_data= la_2ch_data, la_3CH_data=la_3ch_data, la_4CH_data= la_4ch_data, la_2CH_affine=la_2ch_affine, la_3CH_affine=la_3ch_affine, la_4CH_affine=la_4ch_affine, ct_affine= ct_affine)
-    breath_endpoints = fn.display_views(paths, 'breath', misalignment, sa_data= sa_data_breath, la_2CH_data= la_2ch_data_breath, la_3CH_data=la_3ch_data_breath, la_4CH_data= la_4ch_data_breath, la_2CH_affine=la_2ch_affine_breath, la_3CH_affine=la_3ch_affine_breath, la_4CH_affine=la_4ch_affine_breath, ct_affine= ct_affine)
+    # breath_endpoints = fn.display_views(paths, 'breath', misalignment, sa_data= sa_data_breath, la_2CH_data= la_2ch_data_breath, la_3CH_data=la_3ch_data_breath, la_4CH_data= la_4ch_data_breath, la_2CH_affine=la_2ch_affine_breath, la_3CH_affine=la_3ch_affine_breath, la_4CH_affine=la_4ch_affine_breath, ct_affine= ct_affine)
     # MRI_endpoints = fn.display_views(paths, 'MRI', misalignment, sa_data= sa_data_MRIerror, la_2CH_data= la_2ch_data_MRIerror, la_3CH_data=la_3ch_data_MRIerror, la_4CH_data= la_4ch_data_MRIerror, la_2CH_affine=la_2ch_affine_MRIerror, la_3CH_affine=la_3ch_affine_MRIerror, la_4CH_affine=la_4ch_affine_MRIerror, ct_affine= ct_affine)

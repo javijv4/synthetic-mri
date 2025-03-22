@@ -142,10 +142,10 @@ def grid_in_plane(origin, normal, spacing, plane_size, perturbation = None):
     # Compute 3D coordinates for each point on the
     #  creates array of shape (N, N, 3), where each row is a 3D point in the plane centered on origin
     # grid x and y determine x and y cords while u and v orient cords in 3d space to essentially create grind
-    points = (A[:3, :3] @ ijk.T).T + A[:3, 3] # This should be the same as xyz
+    points = (A_shifted[:3, :3] @ ijk.T).T + A_shifted[:3, 3] # This should be the same as xyz
     # TODO: recaclcualkte affine using the correct points
     #  2D array of shape (N, 3) where each row represents the coordinates (in pixel units) of a point in the plane.
-    return points, A, A_shifted
+    return points, A
 
 def interpolate_image(xyz, data, data_affine):
     """
@@ -175,7 +175,7 @@ def generate_scan_slices_main(centroid, normal, spacing, plane_size, ct_data, ct
 
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
-        slice_grid, slice_affine, _ = grid_in_plane(slice_origin, normal, spacing, plane_size)
+        slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         slice_affines.append(slice_affine)
@@ -202,7 +202,7 @@ def generate_scan_slices_misaligned(scan_data, centroid, normal, spacing, plane_
 
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * normal
-        slice_grid, _, _ = grid_in_plane(slice_origin, normal, spacing, plane_size)
+        slice_grid, _ = grid_in_plane(slice_origin, normal, spacing, plane_size)
 
         translation = np.random.uniform(-misalignment * spacing, misalignment * spacing, size=2)
         slice_grid[:, 0] += translation[0]
@@ -241,7 +241,7 @@ def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data
 
     for slice_index in range(number_of_slices):
         slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * perturbed_normal
-        slice_grid, _, slice_affine = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
+        slice_grid, slice_affine = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         slice_affines.append(slice_affine)
@@ -274,38 +274,30 @@ def generate_scan_slices_breathHolding(centroid, normal, spacing, plane_size, ct
         
         centroid_perturbation = np.random.uniform(-breath_holding_error, breath_holding_error, size=3)  # Random shift in x, y, z
 
-        slice_grid, slice_affine, shifted_affine = grid_in_plane(slice_origin, normal, spacing, plane_size, perturbation=centroid_perturbation)
+        slice_grid, slice_affine = grid_in_plane(slice_origin, normal, spacing, plane_size, perturbation=centroid_perturbation)
         slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
 
         slice_affines.append(slice_affine)
-        shifted_affines.append(shifted_affine)
         slice_datas.append(slice_data)
 
     scan_data = np.dstack(slice_datas)
 
     if number_of_slices == 1:
         scan_affine = slice_affines[0]
-        scan_affine_shifted = shifted_affines[0]
     else:
         base_affine = slice_affines[0].copy()
-        base_affine_shifted = shifted_affines[0].copy()
 
         slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3])
-        slice_direction_shifted = (shifted_affines[1][:, 3] - shifted_affines[0][:, 3])
 
         base_affine[:3, 2] = slice_direction[:3]
         base_affine[:3, 3] = slice_affines[0][:3, 3]
 
-        base_affine_shifted[:3, 2] = slice_direction_shifted[:3]
-        base_affine_shifted[:3, 3] = shifted_affines[0][:3, 3]
-
         scan_affine = base_affine
-        scan_affine_shifted = base_affine_shifted
 
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "Breath-Holding Error Simulation")
 
-    return scan_data, scan_affine, scan_affine_shifted
+    return scan_data, scan_affine
 
 def save_Nifti(data, affine, file_name = None):
     new_affine = affine.copy()
