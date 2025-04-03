@@ -29,8 +29,8 @@ paths = {
         'bvg' : '../../bvmodelgen_urop/data/MRI/Run1/'
     },
     'breath': {
-        'data': 'data/breath/Run1/',
-        'bvg' : '../../bvmodelgen_urop/data/breath/Run1/'
+        'data': 'data/breath/Run5/',
+        'bvg' : '../../bvmodelgen_urop/data/breath/Run5/'
     }
 }
 
@@ -62,10 +62,9 @@ spatial_info = fn.calculate_spatial_information(ct_data, ct_affine, labels['LV']
 
 # Grabbing centroid and normal for all views
 sa_normal_origin, la_2ch_normal_origin, la_3ch_normal_origin, la_4ch_normal_origin = fn.get_view_normal_origin(spatial_info)
-misalignment_array = [1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75,4,4.25,4.5,4.75,5,5.25,5.5,5.75,6,6.25,6.5,6.75,7,7.25,7.5,7.75,8]
+misalignment_array = [1,1.25,1.5,1.75,2,2.25,2.5,2.75,3,3.25,3.5,3.75,4,4.25,4.5,4.75,5,5.25,5.5,5.75,6]
 # Create data
 
-misalignment_array = [8]
 # for misalignment in np.arange(.9, .9 , 0.25):
 for misalignment in misalignment_array:
     print("Currently Processing level", misalignment, " misalignment")    
