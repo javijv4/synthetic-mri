@@ -215,24 +215,25 @@ def generate_scan_slices_misaligned(scan_data, centroid, normal, spacing, plane_
 
     return slice_data_misaligned
 
+def perturb_normal(normal, max_angle_deg):
+    max_angle_rad = np.radians(max_angle_deg)  
+
+    random_axis = np.random.randn(3) 
+    random_axis -= random_axis.dot(normal) * normal
+    random_axis /= np.linalg.norm(random_axis)
+
+    theta = np.random.uniform(-max_angle_rad, max_angle_rad)
+
+    K = np.array([[0, -random_axis[2], random_axis[1]],
+                    [random_axis[2], 0, -random_axis[0]],
+                    [-random_axis[1], random_axis[0], 0]])
+    R = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
+
+    perturbed_normal = R @ normal
+    return perturbed_normal / np.linalg.norm(perturbed_normal)
+    
 def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
                          plotOn=False, normal_perturbation = 5):
-    def perturb_normal(normal, max_angle_deg):
-        max_angle_rad = np.radians(max_angle_deg)  
-
-        random_axis = np.random.randn(3) 
-        random_axis -= random_axis.dot(normal) * normal
-        random_axis /= np.linalg.norm(random_axis)
-
-        theta = np.random.uniform(-max_angle_rad, max_angle_rad)
-
-        K = np.array([[0, -random_axis[2], random_axis[1]],
-                      [random_axis[2], 0, -random_axis[0]],
-                      [-random_axis[1], random_axis[0], 0]])
-        R = np.eye(3) + np.sin(theta) * K + (1 - np.cos(theta)) * (K @ K)
-
-        perturbed_normal = R @ normal
-        return perturbed_normal / np.linalg.norm(perturbed_normal)
 
     perturbed_normal = perturb_normal(normal, normal_perturbation)
 
@@ -266,7 +267,6 @@ def generate_scan_slices_MRIerror(centroid, normal, spacing, plane_size, ct_data
 def generate_scan_slices_breathHolding(centroid, normal, spacing, plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, 
                          plotOn=False, breath_holding_error=0.5):
     slice_affines = []
-    shifted_affines = []
     slice_datas = []
 
     for slice_index in range(number_of_slices):
@@ -286,16 +286,45 @@ def generate_scan_slices_breathHolding(centroid, normal, spacing, plane_size, ct
         scan_affine = slice_affines[0]
     else:
         base_affine = slice_affines[0].copy()
-
         slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3])
-
         base_affine[:3, 2] = slice_direction[:3]
         base_affine[:3, 3] = slice_affines[0][:3, 3]
-
         scan_affine = base_affine
 
     if plotOn:
         plot_cardiac_view_slice(scan_data, number_of_slices, "Breath-Holding Error Simulation")
+
+    return scan_data, scan_affine
+
+def generate_scan_slices_both(centroid,normal,spacing,plane_size, ct_data, ct_affine, number_of_slices, out_of_plane_spacing, plotOn=False, normal_perturbation=3, breath_holding_error = 3):
+    perturbed_normal = perturb_normal(normal, normal_perturbation)
+
+    slice_affines = []
+    slice_datas = []
+
+    for slice_index in range(number_of_slices):
+        slice_origin = centroid + (slice_index - number_of_slices // 2) * out_of_plane_spacing * perturbed_normal # MRI ERROR
+        centroid_perturbation = np.random.uniform(-breath_holding_error, breath_holding_error, size=3) # breath holding error
+
+        slice_grid, slice_affine = grid_in_plane(slice_origin, perturbed_normal, spacing, plane_size, perturbation= centroid_perturbation)
+        slice_data = interpolate_image(slice_grid, ct_data, ct_affine)
+
+        slice_affines.append(slice_affine)
+        slice_datas.append(slice_data)
+
+    scan_data = np.dstack(slice_datas)
+
+    if number_of_slices == 1:
+        scan_affine = slice_affines[0]
+    else:
+        base_affine = slice_affines[0].copy()
+        slice_direction = (slice_affines[1][:, 3] - slice_affines[0][:, 3])
+        base_affine[:3, 2] = slice_direction[:3]
+        base_affine[:3, 3] = slice_affines[0][:3, 3]
+        scan_affine = base_affine
+
+    if plotOn:
+        plot_cardiac_view_slice(scan_data, number_of_slices, "Combined MRI + Breath-Holding Error")
 
     return scan_data, scan_affine
 
@@ -509,7 +538,74 @@ def display_views(paths, Type, misalignment, sa_data=None, la_2CH_data=None, la_
         axes[1, 1].axis('off')
 
     plt.tight_layout()
-    # plt.show()
+    plt.show()
+    return endpoints_summary
+
+def display_views_dual_errors(paths, Type, mri_error, bh_error,
+                              sa_data=None, la_2CH_data=None, la_3CH_data=None, la_4CH_data=None,
+                              la_2CH_affine=None, la_3CH_affine=None, la_4CH_affine=None):
+    print("\nDisplaying all views...")
+    fig, axes = plt.subplots(2, 2, figsize=(12, 12))
+    endpoints_summary = {}
+
+    tag = f"_mri{mri_error:.2f}_bh{bh_error:.2f}" if Type != "clean" else ""
+
+    if sa_data is not None:
+        middle_index = sa_data.shape[-1] // 2
+        plot_slice_with_endpoints(axes[0, 0], sa_data[:, :, middle_index], "Short-Axis View (Middle Slice)", {})
+    else:
+        print("Failed to generate short-axis view.")
+        axes[0, 0].axis('off')
+
+    if la_2CH_data is not None:
+        middle_index = la_2CH_data.shape[-1] // 2
+        two_ch_slice = la_2CH_data[:, :, middle_index]
+        MV_endpoints = find_MV_2CH(slice_data=two_ch_slice, lv_label=1, la_label=4)
+        plot_slice_with_endpoints(axes[0, 1], two_ch_slice, "Two-Chamber View (Middle Slice)", 
+                                  {'MV': (MV_endpoints, '#FFCB05', 'MV Endpoint')})
+        valve_array = np.zeros((*two_ch_slice.shape, 1), dtype=np.uint8)
+        create_valve_array(valve_array, MV_endpoints, 1)
+        save_Nifti(valve_array, la_2CH_affine, paths[Type]['data'] + f'2CH_valve{tag}.nii.gz')
+        save_Nifti(valve_array, la_2CH_affine, paths[Type]['bvg'] + f'2CH_valve{tag}.nii.gz')
+        endpoints_summary['2CH'] = {'MV': MV_endpoints}
+    else:
+        print("Failed to generate 2-chamber view.")
+        axes[0, 1].axis('off')
+
+    if la_3CH_data is not None:
+        middle_index = la_3CH_data.shape[-1] // 2
+        three_ch_slice = la_3CH_data[:, :, middle_index]
+        AV_endpoints, MV_endpoints = find_MV_AV_3CH(slice_data=three_ch_slice, lv_label=1, la_label=4, aorta_label=6)
+        plot_slice_with_endpoints(axes[1, 0], three_ch_slice, "Three-Chamber View (Middle Slice)",
+            {'AV': (AV_endpoints, '#FFCB05', 'AV Endpoint'), 'MV': (MV_endpoints, '#007FFF', 'MV Endpoint')})
+        valve_array = np.zeros((*three_ch_slice.shape, 1), dtype=np.uint8)
+        create_valve_array(valve_array, AV_endpoints, 3)
+        create_valve_array(valve_array, MV_endpoints, 1)
+        save_Nifti(valve_array, la_3CH_affine, paths[Type]['data'] + f'3CH_valve{tag}.nii.gz')
+        save_Nifti(valve_array, la_3CH_affine, paths[Type]['bvg'] + f'3CH_valve{tag}.nii.gz')
+        endpoints_summary['3CH'] = {'AV': AV_endpoints, 'MV': MV_endpoints}
+    else:
+        print("Failed to generate 3-chamber view.")
+        axes[1, 0].axis('off')
+
+    if la_4CH_data is not None:
+        middle_index = la_4CH_data.shape[-1] // 2
+        four_ch_slice = la_4CH_data[:, :, middle_index]
+        TV_endpoints, MV_endpoints = find_MV_TV_4CH(slice_data=four_ch_slice, lv_label=1, rv_label=3, la_label=4, ra_label=5)
+        plot_slice_with_endpoints(axes[1, 1], four_ch_slice, "Four-Chamber View (Middle Slice)", 
+                                  {'TV': (TV_endpoints, '#FFCB05', 'TV Endpoint'), 'MV': (MV_endpoints, '#007FFF', 'MV Endpoint')})
+        valve_array = np.zeros((*four_ch_slice.shape, 1), dtype=np.uint8)
+        create_valve_array(valve_array, TV_endpoints, 2)
+        create_valve_array(valve_array, MV_endpoints, 1)
+        save_Nifti(valve_array, la_4CH_affine, paths[Type]['data'] + f'4CH_valve{tag}.nii.gz')
+        save_Nifti(valve_array, la_4CH_affine, paths[Type]['bvg'] + f'4CH_valve{tag}.nii.gz')
+        endpoints_summary['4CH'] = {'TV': TV_endpoints, 'MV': MV_endpoints}
+    else:
+        print("Failed to generate 4-chamber view.")
+        axes[1, 1].axis('off')
+
+    plt.tight_layout()
+    plt.show()
     return endpoints_summary
 
 def show_point_cloud(points, fig=None, color=None, size=10, cmap='Viridis',
@@ -593,6 +689,21 @@ def save_error_files(sa_data, sa_affine, la_2ch_data, la_2ch_affine,
     save_Nifti(la_2ch_data, la_2ch_affine, paths[type]['bvg'] + f'2CH_{type}_{misalignment:.2f}.nii.gz')
     save_Nifti(la_3ch_data, la_3ch_affine, paths[type]['bvg'] + f'3CH_{type}_{misalignment:.2f}.nii.gz')
     save_Nifti(la_4ch_data, la_4ch_affine, paths[type]['bvg'] + f'4CH_{type}_{misalignment:.2f}.nii.gz')
+
+def save_error_files_dual(sa_data, sa_affine,la_2ch_data, la_2ch_affine,la_3ch_data, la_3ch_affine,
+    la_4ch_data, la_4ch_affine,paths, mri_error, breath_error, error_type):
+
+    tag = f"{error_type}_MRI{mri_error:.2f}_BH{breath_error:.2f}"
+
+    save_Nifti(sa_data, sa_affine, paths[error_type]['data'] + f'SA_{tag}.nii.gz')
+    save_Nifti(la_2ch_data, la_2ch_affine, paths[error_type]['data'] + f'2CH_{tag}.nii.gz')
+    save_Nifti(la_3ch_data, la_3ch_affine, paths[error_type]['data'] + f'3CH_{tag}.nii.gz')
+    save_Nifti(la_4ch_data, la_4ch_affine, paths[error_type]['data'] + f'4CH_{tag}.nii.gz')
+
+    save_Nifti(sa_data, sa_affine, paths[error_type]['bvg'] + f'SA_{tag}.nii.gz')
+    save_Nifti(la_2ch_data, la_2ch_affine, paths[error_type]['bvg'] + f'2CH_{tag}.nii.gz')
+    save_Nifti(la_3ch_data, la_3ch_affine, paths[error_type]['bvg'] + f'3CH_{tag}.nii.gz')
+    save_Nifti(la_4ch_data, la_4ch_affine, paths[error_type]['bvg'] + f'4CH_{tag}.nii.gz')
 
 def find_furthest_points(contour):
     max_distance = 0
